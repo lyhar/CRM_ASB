@@ -65,41 +65,41 @@ function substitute(text: string, vars: Record<string, string>): string {
   return text.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`)
 }
 
-function wrapHtml(content: string, signature: string, imgUrl = ''): string {
+export function wrapEmailHtml(body: string, signature: string, imgUrl = ''): string {
   const hasSig = signature || imgUrl
   const sigBlock = hasSig
     ? `<br><hr style="border:none;border-top:1px solid #eee;margin:16px 0;"><div style="color:#666;font-size:13px;">${imgUrl ? `<img src="${imgUrl}" style="max-height:80px;display:block;margin-bottom:8px;" />` : ''}${signature}</div>`
     : ''
-  return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">\n${content}\n${sigBlock}\n</div>`
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">\n${body}\n${sigBlock}\n</div>`
 }
 
-export function renderTemplate(sujet: string, html: string, vars: Record<string, string>, signature: string, imgUrl = ''): EmailTemplate {
+export function renderTemplate(sujet: string, html: string, vars: Record<string, string>): EmailTemplate {
   return {
     sujet: substitute(sujet, vars),
-    html: wrapHtml(substitute(html, vars), signature, imgUrl)
+    html: substitute(html, vars)
   }
 }
 
-export function templateSuiviAnnuel(d: any, signature = '', imgUrl = '', customSujet?: string, customHtml?: string): EmailTemplate {
+export function templateSuiviAnnuel(d: any, customSujet?: string, customHtml?: string): EmailTemplate {
   return renderTemplate(
     customSujet ?? DEFAULT_TEMPLATES.suivi.sujet,
     customHtml ?? DEFAULT_TEMPLATES.suivi.html,
-    buildVars(d), signature, imgUrl
+    buildVars(d)
   )
 }
 
-export function templateRelance6Mois(d: any, signature = '', imgUrl = '', customSujet?: string, customHtml?: string): EmailTemplate {
+export function templateRelance6Mois(d: any, customSujet?: string, customHtml?: string): EmailTemplate {
   return renderTemplate(
     customSujet ?? DEFAULT_TEMPLATES.relance6mois.sujet,
     customHtml ?? DEFAULT_TEMPLATES.relance6mois.html,
-    buildVars(d), signature, imgUrl
+    buildVars(d)
   )
 }
 
-export function templateRelance3Mois(d: any, signature = '', imgUrl = '', customSujet?: string, customHtml?: string): EmailTemplate {
+export function templateRelance3Mois(d: any, customSujet?: string, customHtml?: string): EmailTemplate {
   return renderTemplate(
     customSujet ?? DEFAULT_TEMPLATES.relance3mois.sujet,
     customHtml ?? DEFAULT_TEMPLATES.relance3mois.html,
-    buildVars(d), signature, imgUrl
+    buildVars(d)
   )
 }

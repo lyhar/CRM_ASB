@@ -16,19 +16,13 @@ export default function DossierDetail() {
   const [dossier, setDossier] = useState<any>(null)
   const [showEdit, setShowEdit] = useState(false)
   const [emailData, setEmailData] = useState<{ to: string; subject: string; html: string } | null>(null)
-  const [signature, setSignature] = useState('')
-  const [imgUrl, setImgUrl] = useState('')
   const [customTpl, setCustomTpl] = useState<Record<string, string>>({})
   const [docModal, setDocModal] = useState<{ path: string; name: string } | null>(null)
   const [docType, setDocType] = useState('AUTRE')
 
   useEffect(() => {
     window.api.getSettings().then(res => {
-      if (res.success && res.data) {
-        setSignature(res.data.email_signature || '')
-        setImgUrl(res.data.email_signature_img || '')
-        setCustomTpl(res.data)
-      }
+      if (res.success && res.data) setCustomTpl(res.data)
     })
   }, [])
 
@@ -300,7 +294,7 @@ export default function DossierDetail() {
             {dossier.dateLivraisonReelle && (
               <button
                 onClick={() => {
-                  const t = templateSuiviAnnuel(dossier, signature, imgUrl, customTpl.tpl_suivi_sujet, customTpl.tpl_suivi_html)
+                  const t = templateSuiviAnnuel(dossier, customTpl.tpl_suivi_sujet, customTpl.tpl_suivi_html)
                   setEmailData({ to: dossier.clientEmail, subject: t.sujet, html: t.html })
                 }}
                 className="btn btn-ghost border border-border text-sm">
@@ -310,7 +304,7 @@ export default function DossierDetail() {
             {(dossier.dateLivraisonReelle || dossier.dateFinContrat) && (
               <button
                 onClick={() => {
-                  const t = templateRelance6Mois(dossier, signature, imgUrl, customTpl.tpl_6mois_sujet, customTpl.tpl_6mois_html)
+                  const t = templateRelance6Mois(dossier, customTpl.tpl_6mois_sujet, customTpl.tpl_6mois_html)
                   setEmailData({ to: dossier.clientEmail, subject: t.sujet, html: t.html })
                 }}
                 className="btn btn-ghost border border-border text-sm">
@@ -320,7 +314,7 @@ export default function DossierDetail() {
             {(dossier.dateLivraisonReelle || dossier.dateFinContrat) && (
               <button
                 onClick={() => {
-                  const t = templateRelance3Mois(dossier, signature, imgUrl, customTpl.tpl_3mois_sujet, customTpl.tpl_3mois_html)
+                  const t = templateRelance3Mois(dossier, customTpl.tpl_3mois_sujet, customTpl.tpl_3mois_html)
                   setEmailData({ to: dossier.clientEmail, subject: t.sujet, html: t.html })
                 }}
                 className="btn btn-ghost border border-border text-sm">

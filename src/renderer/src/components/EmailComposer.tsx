@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Send, Copy, Check, Mail } from 'lucide-react'
+import RichTextEditor from './RichTextEditor'
+import { wrapEmailHtml } from '../lib/emailTemplates'
 
 interface EmailComposerProps {
   to: string
@@ -11,7 +13,9 @@ interface EmailComposerProps {
 export default function EmailComposer({ to, subject: initialSubject, html: initialHtml, onClose }: EmailComposerProps) {
   const [toAddr, setToAddr] = useState(to)
   const [subject, setSubject] = useState(initialSubject)
-  const [html, setHtml] = useState(initialHtml)
+  const [body, setBody] = useState(initialHtml)
+  const [sig, setSig] = useState('')
+  const [sigImg, setSigImg] = useState('')
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
   const [copied, setCopied] = useState(false)
@@ -20,15 +24,21 @@ export default function EmailComposer({ to, subject: initialSubject, html: initi
 
   useEffect(() => {
     window.api.getSettings().then(res => {
-      if (res.success) setSmtpOk(!!(res.data?.smtp_host && res.data?.smtp_user && res.data?.smtp_password))
+      if (res.success && res.data) {
+        setSig(res.data.email_signature || '')
+        setSigImg(res.data.email_signature_img || '')
+        setSmtpOk(!!(res.data.smtp_host && res.data.smtp_user && res.data.smtp_password))
+      }
     })
   }, [])
+
+  const fullHtml = () => wrapEmailHtml(body, sig, sigImg)
 
   const handleSend = async () => {
     if (!toAddr) { setStatus({ type: 'error', msg: 'Adresse email manquante' }); return }
     setSending(true)
     setStatus(null)
-    const res = await window.api.sendEmail({ to: toAddr, subject, html })
+    const res = await window.api.sendEmail({ to: toAddr, subject, html: fullHtml() })
     setSending(false)
     if (res.success) {
       setStatus({ type: 'success', msg: 'Email envoyé avec succès !' })
@@ -39,13 +49,15 @@ export default function EmailComposer({ to, subject: initialSubject, html: initi
   }
 
   const handleMailto = () => {
-    const body = html.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim()
-    window.api.openExternal(`mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`)
+    const plain = body.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim()
+    const sigPlain = sig ? `\n\n--\n${sig}` : ''
+    window.api.openExternal(`mailto:${encodeURIComponent(toAddr)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(plain + sigPlain)}`)
   }
 
   const handleCopy = async () => {
-    const body = html.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim()
-    await navigator.clipboard.writeText(body)
+    const plain = body.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim()
+    const sigPlain = sig ? `\n\n--\n${sig}` : ''
+    await navigator.clipboard.writeText(plain + sigPlain)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -79,25 +91,31 @@ export default function EmailComposer({ to, subject: initialSubject, html: initi
           {(['edit', 'preview'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-2 text-sm transition-colors ${tab === t ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-text-muted hover:text-text-primary'}`}>
-              {t === 'edit' ? 'Éditer' : 'Aperçu'}
+              {t === 'edit' ? 'Rédiger' : 'Aperçu rendu'}
             </button>
           ))}
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           {tab === 'edit' ? (
-            <textarea
-              className="w-full h-full bg-bg-secondary text-text-primary text-sm p-4 resize-none focus:outline-none font-mono"
-              value={html}
-              onChange={e => setHtml(e.target.value)}
-              style={{ minHeight: 220 }}
-            />
+            <div className="p-3 space-y-2">
+              <RichTextEditor value={body} onChange={setBody} minHeight={180} />
+              {(sig || sigImg) && (
+                <div className="border-t border-border pt-2 text-xs text-text-muted">
+                  <span className="uppercase tracking-wide font-medium">Signature</span>
+                  <div className="mt-1 opacity-60">
+                    {sigImg && <img src={sigImg} alt="signature" style={{ maxHeight: 50 }} className="mb-1" />}
+                    {sig && <div dangerouslySetInnerHTML={{ __html: sig }} />}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <div
-              className="p-4 overflow-y-auto text-sm"
+              className="p-4 text-sm"
               style={{ minHeight: 220 }}
-              dangerouslySetInnerHTML={{ __html: html }}
+              dangerouslySetInnerHTML={{ __html: fullHtml() }}
             />
           )}
         </div>

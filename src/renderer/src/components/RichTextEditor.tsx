@@ -8,9 +8,10 @@ interface Props {
   value: string
   onChange: (html: string) => void
   minHeight?: number
+  showVariableHint?: boolean
 }
 
-export default function RichTextEditor({ value, onChange, minHeight = 200 }: Props) {
+export default function RichTextEditor({ value, onChange, minHeight = 200, showVariableHint = false }: Props) {
   const editor = useEditor({
     extensions: [StarterKit, Underline],
     content: value,
@@ -63,9 +64,11 @@ export default function RichTextEditor({ value, onChange, minHeight = 200 }: Pro
         <Btn onClick={() => editor.chain().focus().redo().run()} title="Rétablir (Ctrl+Y)">
           <Redo size={13} />
         </Btn>
-        <div className="ml-auto">
-          <span className="text-xs text-text-muted">Variables : <code className="text-accent-blue text-xs">{'{{prenom}}'}</code> <code className="text-accent-blue text-xs">{'{{vehicule}}'}</code> etc.</span>
-        </div>
+        {showVariableHint && (
+          <div className="ml-auto">
+            <span className="text-xs text-text-muted">Variables : <code className="text-accent-blue text-xs">{'{{prenom}}'}</code> <code className="text-accent-blue text-xs">{'{{vehicule}}'}</code> etc.</span>
+          </div>
+        )}
       </div>
 
       {/* Editor area */}

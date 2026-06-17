@@ -348,6 +348,7 @@ export default function Parametres() {
                   value={tpl[section.htmlKey]}
                   onChange={v => st(section.htmlKey, v)}
                   minHeight={180}
+                  showVariableHint
                 />
               </div>
             </div>
