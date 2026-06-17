@@ -63,23 +63,25 @@ function setupAutoUpdater(): void {
   }))
 }
 
-// Dossier de données : à côté de l'exe en prod, ou 'dev-data' en dev
+// Dossier de données : AppData\Roaming\AutoLead CRM\ (toujours accessible en écriture)
 function getDataDir(): string {
   const dir = app.isPackaged
-    ? join(dirname(app.getPath('exe')), 'data')
+    ? join(app.getPath('appData'), 'AutoLead CRM')
     : join(app.getAppPath(), 'dev-data')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
 
-// Migration : déplace les données des anciens emplacements AppData vers le dossier de l'app
+// Migration : récupère les données depuis les anciens emplacements
 function migrateToNewDataDir(): void {
   const dataDir = getDataDir()
   if (existsSync(join(dataDir, 'crm.db'))) return // déjà migré
 
+  const exeDir = app.isPackaged ? dirname(app.getPath('exe')) : ''
   const candidates = [
-    join(app.getPath('appData'), 'autolead-crm'),
-    join(app.getPath('appData'), 'asb-crm'),
+    join(exeDir, 'data'),                              // v1.0.9–v1.1.1 (next to exe, broken)
+    join(app.getPath('appData'), 'autolead-crm'),      // ancien AppData
+    join(app.getPath('appData'), 'asb-crm'),           // encore plus ancien
   ]
   for (const src of candidates) {
     if (existsSync(join(src, 'crm.db'))) {
