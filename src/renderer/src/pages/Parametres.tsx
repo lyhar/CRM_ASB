@@ -1,7 +1,63 @@
 import { useEffect, useState } from 'react'
-import { Plus, Edit2, Trash2, X, Shield, User, Upload } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, Shield, User, Upload, Mail, Check, Image, FileText, RotateCcw, Loader2 } from 'lucide-react'
+import { DEFAULT_TEMPLATES } from '../lib/emailTemplates'
+import RichTextEditor from '../components/RichTextEditor'
+
+type SmtpState = {
+  smtp_host: string; smtp_port: string; smtp_secure: string
+  smtp_user: string; smtp_password: string; smtp_from: string
+  email_signature: string; email_signature_img: string
+}
+
+type TplState = {
+  tpl_suivi_sujet: string; tpl_suivi_html: string
+  tpl_6mois_sujet: string; tpl_6mois_html: string
+  tpl_3mois_sujet: string; tpl_3mois_html: string
+}
+
+const TPL_DEFAULTS: TplState = {
+  tpl_suivi_sujet: DEFAULT_TEMPLATES.suivi.sujet,
+  tpl_suivi_html: DEFAULT_TEMPLATES.suivi.html,
+  tpl_6mois_sujet: DEFAULT_TEMPLATES.relance6mois.sujet,
+  tpl_6mois_html: DEFAULT_TEMPLATES.relance6mois.html,
+  tpl_3mois_sujet: DEFAULT_TEMPLATES.relance3mois.sujet,
+  tpl_3mois_html: DEFAULT_TEMPLATES.relance3mois.html,
+}
+
+function UpdateChecker() {
+  const [status, setStatus] = useState<'idle' | 'checking' | 'uptodate'>('idle')
+
+  const handleCheck = () => {
+    if (status === 'checking') return
+    setStatus('checking')
+    window.api.onUpdateNotAvailable(() => {
+      setStatus('uptodate')
+      setTimeout(() => setStatus('idle'), 3500)
+    })
+    window.api.checkUpdate()
+    // Fallback si aucun événement ne répond (erreur réseau, etc.)
+    setTimeout(() => setStatus(s => s === 'checking' ? 'idle' : s), 15000)
+  }
+
+  return (
+    <button
+      onClick={handleCheck}
+      disabled={status === 'checking'}
+      className="btn w-full flex items-center justify-center gap-2 text-sm py-2"
+    >
+      {status === 'checking' ? (
+        <><Loader2 size={14} className="animate-spin" /> Vérification en cours...</>
+      ) : status === 'uptodate' ? (
+        <><Check size={14} className="text-green-400" /> Déjà à jour !</>
+      ) : (
+        <><RotateCcw size={14} /> Rechercher une mise à jour</>
+      )}
+    </button>
+  )
+}
 
 export default function Parametres() {
+  const [tab, setTab] = useState<'users' | 'email' | 'templates'>('users')
   const [users, setUsers] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<any>(null)
@@ -9,12 +65,84 @@ export default function Parametres() {
   const [saving, setSaving] = useState(false)
   const [importStatus, setImportStatus] = useState('')
 
+  const [smtp, setSmtp] = useState<SmtpState>({
+    smtp_host: '', smtp_port: '587', smtp_secure: 'false',
+    smtp_user: '', smtp_password: '', smtp_from: '',
+    email_signature: '', email_signature_img: ''
+  })
+  const [smtpSaving, setSmtpSaving] = useState(false)
+  const [smtpStatus, setSmtpStatus] = useState('')
+  const [testSending, setTestSending] = useState(false)
+
+  const [tpl, setTpl] = useState<TplState>({ ...TPL_DEFAULTS })
+  const [tplSaving, setTplSaving] = useState(false)
+  const [tplStatus, setTplStatus] = useState('')
+
   const load = async () => {
     const res = await window.api.getUsers()
     if (res.success) setUsers(res.data || [])
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    window.api.getSettings().then(res => {
+      if (res.success && res.data) {
+        setSmtp(prev => ({ ...prev, ...res.data }))
+        setTpl(prev => ({
+          tpl_suivi_sujet: res.data.tpl_suivi_sujet || prev.tpl_suivi_sujet,
+          tpl_suivi_html: res.data.tpl_suivi_html || prev.tpl_suivi_html,
+          tpl_6mois_sujet: res.data.tpl_6mois_sujet || prev.tpl_6mois_sujet,
+          tpl_6mois_html: res.data.tpl_6mois_html || prev.tpl_6mois_html,
+          tpl_3mois_sujet: res.data.tpl_3mois_sujet || prev.tpl_3mois_sujet,
+          tpl_3mois_html: res.data.tpl_3mois_html || prev.tpl_3mois_html,
+        }))
+      }
+    })
+  }, [])
+
+  const saveSmtp = async () => {
+    setSmtpSaving(true)
+    setSmtpStatus('')
+    for (const [k, v] of Object.entries(smtp)) await window.api.setSetting(k, v)
+    setSmtpSaving(false)
+    setSmtpStatus('Paramètres sauvegardés !')
+    setTimeout(() => setSmtpStatus(''), 3000)
+  }
+
+  const testSmtp = async () => {
+    if (!smtp.smtp_user) { setSmtpStatus('Renseignez l\'email SMTP d\'abord'); return }
+    setTestSending(true)
+    setSmtpStatus('')
+    const res = await window.api.sendEmail({
+      to: smtp.smtp_user,
+      subject: 'Test SMTP — AutoLead CRM',
+      html: '<p>Email de test envoyé depuis AutoLead CRM. Configuration SMTP fonctionnelle ✅</p>'
+    })
+    setTestSending(false)
+    setSmtpStatus(res.success ? 'Email de test envoyé avec succès !' : `Erreur : ${res.error}`)
+  }
+
+  const saveTpl = async () => {
+    setTplSaving(true)
+    setTplStatus('')
+    for (const [k, v] of Object.entries(tpl)) await window.api.setSetting(k, v)
+    setTplSaving(false)
+    setTplStatus('Templates sauvegardés !')
+    setTimeout(() => setTplStatus(''), 3000)
+  }
+
+  const resetTpl = (key: 'suivi' | '6mois' | '3mois') => {
+    const map = { suivi: DEFAULT_TEMPLATES.suivi, '6mois': DEFAULT_TEMPLATES.relance6mois, '3mois': DEFAULT_TEMPLATES.relance3mois }
+    const defaults = map[key]
+    setTpl(p => ({
+      ...p,
+      [`tpl_${key}_sujet`]: defaults.sujet,
+      [`tpl_${key}_html`]: defaults.html,
+    }))
+  }
+
+  const ss = (k: keyof SmtpState, v: string) => setSmtp(p => ({ ...p, [k]: v }))
+  const st = (k: keyof TplState, v: string) => setTpl(p => ({ ...p, [k]: v }))
 
   const openEdit = (u?: any) => {
     if (u) { setEditingUser(u); setForm({ nom: u.nom, prenom: u.prenom, email: u.email, role: u.role }) }
@@ -32,7 +160,8 @@ export default function Parametres() {
   }
 
   const deleteUser = async (id: number) => {
-    if (!confirm('Supprimer cet utilisateur ?')) return
+    const res = await window.api.confirm('Supprimer cet utilisateur ?')
+    if (!res.data) return
     await window.api.deleteUser(id)
     load()
   }
@@ -50,11 +179,195 @@ export default function Parametres() {
     setTimeout(() => setImportStatus(''), 5000)
   }
 
-  return (
-    <div className="space-y-6 max-w-2xl">
-      <h1 className="text-xl font-semibold text-text-primary">Paramètres</h1>
+  const TABS = [
+    { id: 'users', label: 'Utilisateurs', icon: <User size={13} /> },
+    { id: 'email', label: 'Email / SMTP', icon: <Mail size={13} /> },
+    { id: 'templates', label: 'Templates email', icon: <FileText size={13} /> },
+  ] as const
 
-      {/* Users */}
+  const TEMPLATE_SECTIONS = [
+    { key: 'suivi' as const, label: DEFAULT_TEMPLATES.suivi.label, sujetKey: 'tpl_suivi_sujet' as const, htmlKey: 'tpl_suivi_html' as const },
+    { key: '6mois' as const, label: DEFAULT_TEMPLATES.relance6mois.label, sujetKey: 'tpl_6mois_sujet' as const, htmlKey: 'tpl_6mois_html' as const },
+    { key: '3mois' as const, label: DEFAULT_TEMPLATES.relance3mois.label, sujetKey: 'tpl_3mois_sujet' as const, htmlKey: 'tpl_3mois_html' as const },
+  ]
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-text-primary">Paramètres</h1>
+        <div className="flex rounded border border-border overflow-hidden">
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-4 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${tab === t.id ? 'bg-accent-blue text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── SMTP ── */}
+      {tab === 'email' && (
+        <div className="space-y-4">
+          <div className="card space-y-4">
+            <h2 className="font-medium text-text-primary flex items-center gap-2"><Mail size={14} /> Configuration SMTP</h2>
+            <p className="text-xs text-text-muted">Permet d'envoyer des emails directement depuis l'application (templates de relance, suivi contrat…)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="form-label">Serveur SMTP (host)</label>
+                <input className="form-input" value={smtp.smtp_host} onChange={e => ss('smtp_host', e.target.value)} placeholder="smtp.gmail.com" />
+              </div>
+              <div>
+                <label className="form-label">Port</label>
+                <input className="form-input" value={smtp.smtp_port} onChange={e => ss('smtp_port', e.target.value)} placeholder="587" />
+              </div>
+              <div>
+                <label className="form-label">Sécurité</label>
+                <select className="form-input" value={smtp.smtp_secure} onChange={e => ss('smtp_secure', e.target.value)}>
+                  <option value="false">STARTTLS (port 587)</option>
+                  <option value="true">SSL/TLS (port 465)</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Email (identifiant)</label>
+                <input className="form-input" value={smtp.smtp_user} onChange={e => ss('smtp_user', e.target.value)} placeholder="votre@email.com" />
+              </div>
+              <div>
+                <label className="form-label">Mot de passe / App Password</label>
+                <input type="password" className="form-input" value={smtp.smtp_password} onChange={e => ss('smtp_password', e.target.value)} placeholder="••••••••" />
+              </div>
+              <div className="col-span-2">
+                <label className="form-label">Nom expéditeur (From)</label>
+                <input className="form-input" value={smtp.smtp_from} onChange={e => ss('smtp_from', e.target.value)} placeholder="Antoine Moreau <votre@email.com>" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button className="btn btn-primary" onClick={saveSmtp} disabled={smtpSaving}>
+                <Check size={14} /> {smtpSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+              </button>
+              <button className="btn btn-ghost border border-border" onClick={testSmtp} disabled={testSending}>
+                <Mail size={14} /> {testSending ? 'Envoi...' : 'Tester la connexion'}
+              </button>
+              {smtpStatus && (
+                <span className={`text-sm ${smtpStatus.includes('succès') || smtpStatus.includes('sauvegardés') ? 'text-accent-green' : 'text-accent-red'}`}>
+                  {smtpStatus}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="card space-y-3">
+            <h2 className="font-medium text-text-primary flex items-center gap-2"><Image size={14} /> Signature email</h2>
+            <p className="text-xs text-text-muted">L'image et le texte sont ajoutés automatiquement à la fin de chaque email.</p>
+            <div>
+              <label className="form-label">Logo / image de signature</label>
+              <div className="flex items-center gap-3">
+                <button
+                  className="btn btn-ghost border border-border"
+                  onClick={async () => {
+                    const res = await window.api.readImageAsBase64()
+                    if (res.success && res.data) ss('email_signature_img', res.data)
+                  }}
+                >
+                  <Upload size={13} /> Choisir une image
+                </button>
+                {smtp.email_signature_img && (
+                  <button className="text-xs text-accent-red hover:underline" onClick={() => ss('email_signature_img', '')}>
+                    Supprimer
+                  </button>
+                )}
+              </div>
+            </div>
+            {smtp.email_signature_img && (
+              <div className="p-3 bg-bg-secondary rounded border border-border">
+                <img src={smtp.email_signature_img} alt="Aperçu" className="max-h-20 object-contain" onError={e => (e.currentTarget.style.display = 'none')} />
+              </div>
+            )}
+            <div>
+              <label className="form-label">Texte de signature</label>
+              <textarea
+                className="form-input min-h-24 resize-none font-mono text-xs"
+                value={smtp.email_signature}
+                onChange={e => ss('email_signature', e.target.value)}
+                placeholder="Jean Dupont&#10;Apporteur d'affaires automobile & moto&#10;📞 06 XX XX XX XX | ✉ contact@exemple.fr"
+              />
+              <p className="text-xs text-text-muted mt-1">Supporte le HTML basique (&lt;b&gt;, &lt;br&gt;, &lt;a&gt;…)</p>
+            </div>
+            <button className="btn btn-primary" onClick={saveSmtp} disabled={smtpSaving}>
+              <Check size={14} /> Sauvegarder la signature
+            </button>
+          </div>
+
+          <div className="card">
+            <h2 className="font-medium text-text-primary mb-3 text-sm">Aide — Gmail</h2>
+            <div className="text-xs text-text-muted space-y-1">
+              <p>• Host : <code className="text-text-secondary">smtp.gmail.com</code> | Port : <code className="text-text-secondary">587</code> | Mode : STARTTLS</p>
+              <p>• Le mot de passe doit être un <strong className="text-text-secondary">App Password</strong> Google (pas votre mot de passe Gmail habituel)</p>
+              <p>• <button onClick={() => window.api.openExternal('https://support.google.com/mail/answer/185833?hl=fr')} className="text-accent-blue hover:underline">Créer un App Password Google →</button></p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TEMPLATES ── */}
+      {tab === 'templates' && (
+        <div className="space-y-4">
+          <div className="card">
+            <p className="text-sm text-text-muted">
+              Personnalisez les 3 templates d'email de relance. Utilisez les variables entre doubles accolades pour insérer les données du dossier.
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {['{{prenom}}', '{{vehicule}}', '{{financement}}', '{{dateFinContrat}}', '{{concessionnaire}}'].map(v => (
+                <code key={v} className="text-xs bg-bg-secondary border border-border rounded px-2 py-0.5 text-accent-blue">{v}</code>
+              ))}
+            </div>
+          </div>
+
+          {TEMPLATE_SECTIONS.map(section => (
+            <div key={section.key} className="card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-text-primary flex items-center gap-2">
+                  <Mail size={13} className="text-accent-blue" /> {section.label}
+                </h3>
+                <button
+                  onClick={() => resetTpl(section.key)}
+                  className="btn btn-ghost text-xs text-text-muted">
+                  <RotateCcw size={11} /> Restaurer défaut
+                </button>
+              </div>
+              <div>
+                <label className="form-label">Objet</label>
+                <input
+                  className="form-input font-mono text-sm"
+                  value={tpl[section.sujetKey]}
+                  onChange={e => st(section.sujetKey, e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Corps du message</label>
+                <RichTextEditor
+                  value={tpl[section.htmlKey]}
+                  onChange={v => st(section.htmlKey, v)}
+                  minHeight={180}
+                />
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-center gap-3">
+            <button className="btn btn-primary" onClick={saveTpl} disabled={tplSaving}>
+              <Check size={14} /> {tplSaving ? 'Sauvegarde...' : 'Sauvegarder les templates'}
+            </button>
+            {tplStatus && (
+              <span className={`text-sm ${tplStatus.includes('sauvegardés') ? 'text-accent-green' : 'text-accent-red'}`}>
+                {tplStatus}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── UTILISATEURS ── */}
+      {tab === 'users' && (<>
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-medium text-text-primary">Utilisateurs</h2>
@@ -83,7 +396,6 @@ export default function Parametres() {
         </div>
       </div>
 
-      {/* Import Excel */}
       <div className="card">
         <h2 className="font-medium text-text-primary mb-3">Import données Excel</h2>
         <p className="text-sm text-text-secondary mb-4">
@@ -102,17 +414,17 @@ export default function Parametres() {
         </div>
       </div>
 
-      {/* App info */}
       <div className="card">
         <h2 className="font-medium text-text-primary mb-3">À propos</h2>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-text-muted">Version</span><span className="text-text-secondary">1.0.0</span></div>
-          <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">ASB CRM</span></div>
+        <div className="space-y-2 text-sm mb-4">
+          <div className="flex justify-between"><span className="text-text-muted">Version</span><span className="text-text-secondary font-mono">1.0.6</span></div>
+          <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">AutoLead CRM</span></div>
           <div className="flex justify-between"><span className="text-text-muted">Base de données</span><span className="text-text-secondary">SQLite (locale)</span></div>
         </div>
+        <UpdateChecker />
       </div>
+      </>)}
 
-      {/* User Form */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-bg-card border border-border rounded-lg w-80 p-5">

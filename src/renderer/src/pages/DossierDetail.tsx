@@ -1,18 +1,36 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit2, Trash2, Flame, FileText, Upload, Plus, Check } from 'lucide-react'
+import { ArrowLeft, Edit2, Trash2, Flame, FileText, Upload, Plus, Check, Mail } from 'lucide-react'
 import {
   formatDate, formatCurrency, formatNumber,
   STATUT_LABELS, STATUT_COLORS, FINANCEMENT_LABELS,
   COMMISSION_LABELS, COMMISSION_COLORS, ENERGIE_LABELS, DOCUMENT_LABELS
 } from '../lib/utils'
 import DossierForm from '../components/DossierForm'
+import EmailComposer from '../components/EmailComposer'
+import { templateSuiviAnnuel, templateRelance6Mois, templateRelance3Mois } from '../lib/emailTemplates'
 
 export default function DossierDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [dossier, setDossier] = useState<any>(null)
   const [showEdit, setShowEdit] = useState(false)
+  const [emailData, setEmailData] = useState<{ to: string; subject: string; html: string } | null>(null)
+  const [signature, setSignature] = useState('')
+  const [imgUrl, setImgUrl] = useState('')
+  const [customTpl, setCustomTpl] = useState<Record<string, string>>({})
+  const [docModal, setDocModal] = useState<{ path: string; name: string } | null>(null)
+  const [docType, setDocType] = useState('AUTRE')
+
+  useEffect(() => {
+    window.api.getSettings().then(res => {
+      if (res.success && res.data) {
+        setSignature(res.data.email_signature || '')
+        setImgUrl(res.data.email_signature_img || '')
+        setCustomTpl(res.data)
+      }
+    })
+  }, [])
 
   const load = async () => {
     const res = await window.api.getDossier(Number(id))
@@ -22,7 +40,8 @@ export default function DossierDetail() {
   useEffect(() => { load() }, [id])
 
   const handleDelete = async () => {
-    if (!confirm('Supprimer ce dossier ?')) return
+    const res = await window.api.confirm('Supprimer ce dossier ?')
+    if (!res.data) return
     await window.api.deleteDossier(Number(id))
     navigate('/dossiers')
   }
@@ -32,9 +51,21 @@ export default function DossierDetail() {
     if (res.data?.canceled || !res.data?.filePaths?.[0]) return
     const filePath = res.data.filePaths[0]
     const fileName = filePath.split('\\').pop() || filePath.split('/').pop() || 'document'
-    const type = prompt('Type (PERMIS, RIB, CNI, PASSEPORT, JUSTIFICATIF_DOMICILE, BILAN_COMPTABLE, KBIS, AUTRE):', 'AUTRE')
-    if (!type) return
-    await window.api.uploadDocument({ dossierId: Number(id), typeDocument: type, nomFichier: fileName, sourcePath: filePath })
+    setDocType('AUTRE')
+    setDocModal({ path: filePath, name: fileName })
+  }
+
+  const confirmUploadDoc = async () => {
+    if (!docModal) return
+    await window.api.uploadDocument({ dossierId: Number(id), typeDocument: docType, nomFichier: docModal.name, sourcePath: docModal.path })
+    setDocModal(null)
+    load()
+  }
+
+  const handleDeleteDoc = async (docId: number, fileName: string) => {
+    const res = await window.api.confirm(`Supprimer le document "${fileName}" ?`)
+    if (!res.data) return
+    await window.api.deleteDocument(docId)
     load()
   }
 
@@ -74,6 +105,11 @@ export default function DossierDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {dossier.clientEmail && (
+            <button className="btn btn-ghost" onClick={() => setEmailData({ to: dossier.clientEmail, subject: '', html: '' })}>
+              <Mail size={14} /> Envoyer un email
+            </button>
+          )}
           <button className="btn btn-ghost" onClick={() => setShowEdit(true)}><Edit2 size={14} /> Modifier</button>
           <button className="btn btn-danger" onClick={handleDelete}><Trash2 size={14} /> Supprimer</button>
         </div>
@@ -201,15 +237,19 @@ export default function DossierDetail() {
           {(dossier.documents || []).length === 0 ? (
             <div className="text-center py-4 text-text-muted text-sm">Aucun document</div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {(dossier.documents || []).map((doc: any) => (
-                <div key={doc.id} className="flex items-center gap-2 p-2 rounded hover:bg-bg-hover cursor-pointer transition-colors"
-                  onClick={() => window.api.openDocument(doc.cheminFichier)}>
-                  <FileText size={14} className="text-accent-blue flex-shrink-0" />
-                  <div className="min-w-0">
+                <div key={doc.id} className="flex items-center gap-2 p-2 rounded hover:bg-bg-hover transition-colors group">
+                  <FileText size={14} className="text-accent-blue flex-shrink-0 cursor-pointer" onClick={() => window.api.openDocument(doc.cheminFichier)} />
+                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => window.api.openDocument(doc.cheminFichier)}>
                     <div className="text-sm text-text-primary truncate">{doc.nomFichier}</div>
                     <div className="text-xs text-text-muted">{DOCUMENT_LABELS[doc.typeDocument] || doc.typeDocument}</div>
                   </div>
+                  <button
+                    onClick={() => handleDeleteDoc(doc.id, doc.nomFichier)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-accent-red transition-all">
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -250,7 +290,80 @@ export default function DossierDetail() {
         </div>
       )}
 
+      {/* Emails relance contrat */}
+      {dossier.statut === 'GAGNE' && dossier.clientEmail && (dossier.dateLivraisonReelle || dossier.dateFinContrat) && (
+        <div className="card">
+          <h3 className="font-medium text-text-primary text-sm mb-3 flex items-center gap-2">
+            <Mail size={14} className="text-accent-blue" /> Emails de relance contrat
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {dossier.dateLivraisonReelle && (
+              <button
+                onClick={() => {
+                  const t = templateSuiviAnnuel(dossier, signature, imgUrl, customTpl.tpl_suivi_sujet, customTpl.tpl_suivi_html)
+                  setEmailData({ to: dossier.clientEmail, subject: t.sujet, html: t.html })
+                }}
+                className="btn btn-ghost border border-border text-sm">
+                <Mail size={13} /> Suivi 1 an après livraison
+              </button>
+            )}
+            {(dossier.dateLivraisonReelle || dossier.dateFinContrat) && (
+              <button
+                onClick={() => {
+                  const t = templateRelance6Mois(dossier, signature, imgUrl, customTpl.tpl_6mois_sujet, customTpl.tpl_6mois_html)
+                  setEmailData({ to: dossier.clientEmail, subject: t.sujet, html: t.html })
+                }}
+                className="btn btn-ghost border border-border text-sm">
+                <Mail size={13} /> Relance 6 mois avant fin
+              </button>
+            )}
+            {(dossier.dateLivraisonReelle || dossier.dateFinContrat) && (
+              <button
+                onClick={() => {
+                  const t = templateRelance3Mois(dossier, signature, imgUrl, customTpl.tpl_3mois_sujet, customTpl.tpl_3mois_html)
+                  setEmailData({ to: dossier.clientEmail, subject: t.sujet, html: t.html })
+                }}
+                className="btn btn-ghost border border-border text-sm">
+                <Mail size={13} /> Relance restitution 3 mois
+              </button>
+            )}
+          </div>
+          {!dossier.dureeContrat && (
+            <p className="text-xs text-text-muted mt-2">
+              Astuce : renseignez la durée du contrat pour que les rappels de fin de contrat apparaissent dans "Aujourd'hui".
+            </p>
+          )}
+        </div>
+      )}
+
       {showEdit && <DossierForm dossier={dossier} onClose={() => { setShowEdit(false); load() }} />}
+      {emailData && <EmailComposer {...emailData} onClose={() => setEmailData(null)} />}
+
+      {docModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-bg-secondary border border-border rounded-lg p-5 w-96 space-y-4">
+            <h3 className="font-medium text-text-primary">Importer un document</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="label">Fichier sélectionné</label>
+                <div className="text-sm text-text-secondary bg-bg-primary rounded px-3 py-2 truncate">{docModal.name}</div>
+              </div>
+              <div>
+                <label className="label">Type de document</label>
+                <select value={docType} onChange={e => setDocType(e.target.value)} className="input w-full">
+                  {Object.entries(DOCUMENT_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={confirmUploadDoc} className="btn btn-primary flex-1"><Upload size={14} /> Importer</button>
+              <button onClick={() => setDocModal(null)} className="btn flex-1">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

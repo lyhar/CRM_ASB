@@ -27,14 +27,14 @@ export default function Sidebar() {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-9" style={{ marginTop: 36 }}>
-        <div className={cn('flex items-center gap-2 px-4 py-3 w-full', collapsed && 'justify-center px-0')}>
+      <div className="flex items-center flex-shrink-0" style={{ height: 52 }}>
+        <div className={cn('flex items-center gap-2 px-4 w-full', collapsed && 'justify-center px-0')}>
           {!collapsed && (
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded bg-accent-blue flex items-center justify-center flex-shrink-0">
                 <Car size={14} className="text-white" />
               </div>
-              <span className="font-semibold text-text-primary text-sm tracking-wide">ASB CRM</span>
+              <span className="font-semibold text-text-primary text-sm tracking-wide">AutoLead CRM</span>
             </div>
           )}
           {collapsed && (

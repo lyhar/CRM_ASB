@@ -51,7 +51,8 @@ export default function Vehicules() {
   }
 
   const deleteMarque = async (id: number) => {
-    if (!confirm('Supprimer cette marque et tous ses modèles ?')) return
+    const res = await window.api.confirm('Supprimer cette marque et tous ses modèles ?')
+    if (!res.data) return
     await window.api.deleteMarque(id)
     load()
   }
@@ -71,7 +72,8 @@ export default function Vehicules() {
   }
 
   const deleteModele = async (id: number, marqueId: number) => {
-    if (!confirm('Supprimer ce modèle ?')) return
+    const res = await window.api.confirm('Supprimer ce modèle ?')
+    if (!res.data) return
     await window.api.deleteModele(id)
     reloadModeles(marqueId)
   }
@@ -88,7 +90,7 @@ export default function Vehicules() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="flex rounded border border-border overflow-hidden">
+        <div className="flex rounded border border-border overflow-hidden flex-shrink-0">
           {['VOITURE', 'MOTO'].map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
               className={`px-4 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${typeFilter === t ? 'bg-accent-blue text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>

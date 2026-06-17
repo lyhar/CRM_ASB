@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, Building2, Phone, Mail, Edit2, X, Check } from 'lucide-react'
+import { Plus, Building2, Phone, Mail, Edit2, X, MapPin } from 'lucide-react'
 import { formatCurrency } from '../lib/utils'
 
 export default function ContactsPro() {
@@ -53,9 +53,8 @@ export default function ContactsPro() {
       <div className="flex gap-4 h-[calc(100vh-180px)]">
         {/* List */}
         <div className="w-80 flex-shrink-0 flex flex-col gap-3">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="form-input pl-9 py-1.5 text-sm w-full" />
+          <div>
+            <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="form-input py-1.5 text-sm w-full" />
           </div>
           <div className="flex-1 overflow-y-auto space-y-1">
             {contacts.map(c => (
@@ -110,8 +109,18 @@ export default function ContactsPro() {
                     </div>
                   )}
                   {(selected.adresse || selected.ville) && (
-                    <div className="text-sm text-text-secondary col-span-2">
-                      {[selected.adresse, selected.codePostal, selected.ville].filter(Boolean).join(', ')}
+                    <div className="flex items-center gap-2 text-sm text-text-secondary col-span-2">
+                      <span>{[selected.adresse, selected.codePostal, selected.ville].filter(Boolean).join(', ')}</span>
+                      <button
+                        onClick={() => {
+                          const q = encodeURIComponent([selected.entreprise, selected.adresse, selected.codePostal, selected.ville].filter(Boolean).join(' '))
+                          window.api.openExternal(`https://maps.google.com/?q=${q}`)
+                        }}
+                        className="flex items-center gap-1 text-xs text-accent-blue hover:underline flex-shrink-0"
+                        title="Ouvrir dans Google Maps"
+                      >
+                        <MapPin size={12} /> Maps
+                      </button>
                     </div>
                   )}
                   {selected.siret && <div className="text-xs text-text-muted">SIRET: {selected.siret}</div>}

@@ -83,3 +83,28 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .stat-card {
   @apply bg-bg-card border border-border rounded-lg p-5;
 }
+
+/* TipTap rich text editor */
+.rich-editor .ProseMirror {
+  padding: 12px;
+  min-height: inherit;
+  outline: none;
+  color: #e5e5e5;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.rich-editor .ProseMirror p { margin-bottom: 0.5em; }
+.rich-editor .ProseMirror p:last-child { margin-bottom: 0; }
+.rich-editor .ProseMirror strong { font-weight: 600; }
+.rich-editor .ProseMirror em { font-style: italic; }
+.rich-editor .ProseMirror u { text-decoration: underline; }
+.rich-editor .ProseMirror ul { list-style: disc; padding-left: 1.4em; margin-bottom: 0.5em; }
+.rich-editor .ProseMirror ol { list-style: decimal; padding-left: 1.4em; margin-bottom: 0.5em; }
+.rich-editor .ProseMirror li { margin-bottom: 0.2em; }
+.rich-editor .ProseMirror p.is-empty::before {
+  content: attr(data-placeholder);
+  color: #555;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}

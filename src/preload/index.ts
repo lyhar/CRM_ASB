@@ -62,6 +62,23 @@ const api = {
   openFileDialog: (options?: unknown) => ipcRenderer.invoke('dialog:openFile', options),
   openDocumentDialog: () => ipcRenderer.invoke('dialog:openDocument'),
 
+  // Shell
+  openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  confirm: (message: string) => ipcRenderer.invoke('dialog:confirm', message),
+
+  // Settings
+  getSettings: () => ipcRenderer.invoke('settings:getAll'),
+  setSetting: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),
+
+  // Email
+  sendEmail: (data: { to: string; subject: string; html: string }) => ipcRenderer.invoke('email:send', data),
+
+  // Image
+  readImageAsBase64: () => ipcRenderer.invoke('image:readAsBase64'),
+
+  // Tâches du jour
+  getTachesJour: () => ipcRenderer.invoke('dashboard:getTachesJour'),
+
   // Mises à jour
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),

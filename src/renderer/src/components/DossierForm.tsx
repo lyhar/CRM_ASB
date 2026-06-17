@@ -3,10 +3,11 @@ import { X } from 'lucide-react'
 
 interface Props {
   dossier?: any
+  prefilledClient?: { id: number; prenom: string; nom: string }
   onClose: () => void
 }
 
-export default function DossierForm({ dossier, onClose }: Props) {
+export default function DossierForm({ dossier, prefilledClient, onClose }: Props) {
   const [form, setForm] = useState<any>({
     clientId: '',
     dateDemande: new Date().toISOString().split('T')[0],
@@ -50,6 +51,8 @@ export default function DossierForm({ dossier, onClose }: Props) {
   const [marques, setMarques] = useState<any[]>([])
   const [modeles, setModeles] = useState<any[]>([])
   const [contactsPro, setContactsPro] = useState<any[]>([])
+  const [concessionSearch, setConcessionSearch] = useState('')
+  const [showConcessionList, setShowConcessionList] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [section, setSection] = useState(0)
@@ -60,9 +63,18 @@ export default function DossierForm({ dossier, onClose }: Props) {
       const dateFields = ['dateDemande', 'dateCommande', 'dateLivraisonPrevue', 'dateLivraisonReelle', 'dateFacturation', 'datePaiement', 'dateRelance']
       dateFields.forEach(k => { if (f[k]) f[k] = f[k].split('T')[0] })
       setForm(f)
+      setClientSearch(`${dossier.clientPrenom || ''} ${dossier.clientNom || ''}`.trim())
+    } else if (prefilledClient) {
+      setForm((f: any) => ({ ...f, clientId: prefilledClient.id }))
+      setClientSearch(`${prefilledClient.prenom} ${prefilledClient.nom}`)
     }
     window.api.getMarques().then(res => { if (res.success) setMarques(res.data || []) })
-    window.api.getContactsPro({}).then(res => { if (res.success) setContactsPro(res.data || []) })
+    window.api.getContactsPro({}).then(res => {
+      if (res.success) {
+        setContactsPro(res.data || [])
+        if (dossier?.concessionnaire) setConcessionSearch(dossier.concessionnaire)
+      }
+    })
   }, [dossier])
 
   useEffect(() => {
@@ -148,7 +160,7 @@ export default function DossierForm({ dossier, onClose }: Props) {
               <div>
                 <label className="form-label">Client *</label>
                 <div className="relative">
-                  <input className="form-input" value={clientSearch || (dossier ? `${dossier.clientPrenom || ''} ${dossier.clientNom || ''}`.trim() : '')}
+                  <input className="form-input" value={clientSearch}
                     onChange={e => searchClient(e.target.value)} placeholder="Rechercher un client..." />
                   {clients.length > 0 && (
                     <div className="absolute top-full mt-1 left-0 right-0 bg-bg-card border border-border rounded shadow-lg z-10">
@@ -320,12 +332,38 @@ export default function DossierForm({ dossier, onClose }: Props) {
           {/* Section 2: Commande */}
           {section === 2 && <>
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="relative">
                 <label className="form-label">Concessionnaire</label>
-                <select className="form-input" value={form.contactProId} onChange={e => set('contactProId', e.target.value)}>
-                  <option value="">— Sélectionner —</option>
-                  {contactsPro.map((c: any) => <option key={c.id} value={c.id}>{c.entreprise}</option>)}
-                </select>
+                <input
+                  className="form-input"
+                  value={concessionSearch}
+                  placeholder="Rechercher un concessionnaire..."
+                  onChange={e => { setConcessionSearch(e.target.value); setShowConcessionList(true) }}
+                  onFocus={() => setShowConcessionList(true)}
+                  onBlur={() => setTimeout(() => setShowConcessionList(false), 150)}
+                />
+                {showConcessionList && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-bg-card border border-border rounded shadow-lg max-h-52 overflow-y-auto">
+                    {contactsPro
+                      .filter((c: any) => !concessionSearch || c.entreprise?.toLowerCase().includes(concessionSearch.toLowerCase()) || c.ville?.toLowerCase().includes(concessionSearch.toLowerCase()))
+                      .slice(0, 20)
+                      .map((c: any) => (
+                        <button key={c.id} type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-bg-hover text-text-primary flex items-center justify-between"
+                          onMouseDown={() => { set('contactProId', String(c.id)); setConcessionSearch(c.entreprise); setShowConcessionList(false) }}>
+                          <span>{c.entreprise}</span>
+                          <span className="text-xs text-text-muted">{c.ville || ''}</span>
+                        </button>
+                      ))}
+                    {concessionSearch && (
+                      <button type="button"
+                        className="w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-bg-hover border-t border-border"
+                        onMouseDown={() => { set('contactProId', ''); setConcessionSearch(''); setShowConcessionList(false) }}>
+                        Effacer la sélection
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="form-label">Nom du vendeur</label>

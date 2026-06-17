@@ -11,6 +11,7 @@ export default function ClientForm({ client, onClose }: Props) {
     type: 'PARTICULIER',
     nom: '',
     prenom: '',
+    entreprise: '',
     dateNaissance: '',
     adresse: '',
     codePostal: '',
@@ -33,6 +34,7 @@ export default function ClientForm({ client, onClose }: Props) {
         type: client.type || 'PARTICULIER',
         nom: client.nom || '',
         prenom: client.prenom || '',
+        entreprise: client.entreprise || '',
         dateNaissance: client.dateNaissance ? client.dateNaissance.split('T')[0] : '',
         adresse: client.adresse || '',
         codePostal: client.codePostal || '',
@@ -85,6 +87,7 @@ export default function ClientForm({ client, onClose }: Props) {
               </select>
             </div>
             <div className="flex items-end gap-4">
+
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={form.estPremierAppelant} onChange={e => set('estPremierAppelant', e.target.checked)} className="accent-accent-blue" />
                 <span className="text-sm text-text-secondary">Premier appelant</span>
@@ -95,6 +98,13 @@ export default function ClientForm({ client, onClose }: Props) {
               </label>
             </div>
           </div>
+
+          {form.type === 'PROFESSIONNEL' && (
+            <div>
+              <label className="form-label">Entreprise / Société</label>
+              <input className="form-input" value={form.entreprise} onChange={e => set('entreprise', e.target.value)} placeholder="Nom de la société" />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

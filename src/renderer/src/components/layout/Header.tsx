@@ -1,11 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, User } from 'lucide-react'
+import { User } from 'lucide-react'
 
 export default function Header() {
   const [search, setSearch] = useState('')
   const [results, setResults] = useState<any[]>([])
+  const [userName, setUserName] = useState('')
   const navigate = useNavigate()
+
+  useEffect(() => {
+    window.api.getUsers().then(res => {
+      if (res.success && res.data?.length) {
+        const u = res.data[0]
+        setUserName(`${u.prenom} ${u.nom.charAt(0)}.`)
+      }
+    })
+  }, [])
 
   const handleSearch = async (q: string) => {
     setSearch(q)
@@ -20,15 +30,14 @@ export default function Header() {
       style={{ height: 52, paddingTop: 0 }}
     >
       {/* Search */}
-      <div className="relative w-72">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+      <div className="relative flex-1 max-w-sm min-w-[220px]">
         <input
           type="text"
           placeholder="Rechercher un client..."
           value={search}
           onChange={e => handleSearch(e.target.value)}
           onBlur={() => setTimeout(() => setResults([]), 200)}
-          className="w-full bg-bg-card border border-border rounded px-3 py-1.5 pl-9 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue"
+          className="w-full bg-bg-card border border-border rounded px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue"
         />
         {results.length > 0 && (
           <div className="absolute top-full mt-1 left-0 w-full bg-bg-card border border-border rounded shadow-lg z-50">
@@ -51,7 +60,7 @@ export default function Header() {
         <div className="w-7 h-7 rounded-full bg-accent-blue/20 flex items-center justify-center">
           <User size={14} className="text-accent-blue" />
         </div>
-        <span>Antoine M.</span>
+        <span>{userName}</span>
       </div>
     </header>
   )

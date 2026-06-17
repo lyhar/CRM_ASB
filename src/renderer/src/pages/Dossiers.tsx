@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Flame, FolderOpen } from 'lucide-react'
+import { Plus, Flame, FolderOpen, ChevronUp, ChevronDown } from 'lucide-react'
 import { formatDate, formatCurrency, STATUT_LABELS, STATUT_COLORS, FINANCEMENT_LABELS, FINANCEMENT_COLORS, COMMISSION_LABELS, COMMISSION_COLORS } from '../lib/utils'
 import DossierForm from '../components/DossierForm'
+
+type SortDir = 'asc' | 'desc'
 
 export default function Dossiers() {
   const [dossiers, setDossiers] = useState<any[]>([])
@@ -10,7 +12,21 @@ export default function Dossiers() {
   const [statutFilter, setStatutFilter] = useState('')
   const [financementFilter, setFinancementFilter] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [sortField, setSortField] = useState('dateDemande')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const navigate = useNavigate()
+
+  const toggleSort = (field: string) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('asc') }
+  }
+
+  const sorted = [...dossiers].sort((a, b) => {
+    const va = a[sortField] ?? ''
+    const vb = b[sortField] ?? ''
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0
+    return sortDir === 'asc' ? cmp : -cmp
+  })
 
   const load = async () => {
     const res = await window.api.getDossiers({
@@ -42,13 +58,12 @@ export default function Dossiers() {
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48 max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             placeholder="N° dossier, client, marque..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="form-input pl-9 py-1.5 text-sm w-full"
+            className="form-input py-1.5 text-sm w-full"
           />
         </div>
         <select value={statutFilter} onChange={e => setStatutFilter(e.target.value)} className="form-input w-40 py-1.5 text-sm">
@@ -72,28 +87,56 @@ export default function Dossiers() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              {['', 'N° Dossier', 'Client', 'Véhicule', 'Type', 'Statut', 'Concessionnaire', 'Commission', 'Statut comm.', 'Livraison', 'Date'].map(h => (
-                <th key={h} className="text-left text-xs font-medium text-text-muted px-3 py-3 first:px-3 first:w-6">{h}</th>
+              <th className="w-8 pl-3 pr-1 py-3" />
+              {([
+                ['numeroDossier', 'N° Dossier'],
+                ['clientNom', 'Client'],
+                ['marqueNom', 'Véhicule'],
+                ['typeFinancement', 'Type'],
+                ['statut', 'Statut'],
+                ['concessionnaire', 'Concessionnaire'],
+                ['montantCommission', 'Commission'],
+                ['statutCommission', 'Statut comm.'],
+                ['dateLivraisonPrevue', 'Livraison'],
+                ['dateDemande', 'Date'],
+              ] as [string, string][]).map(([field, label]) => (
+                <th key={field}
+                  className="text-left text-xs font-medium text-text-muted px-3 py-3 cursor-pointer select-none hover:text-text-primary transition-colors whitespace-nowrap"
+                  onClick={() => toggleSort(field)}>
+                  <span className="flex items-center gap-1">
+                    {label}
+                    {sortField === field
+                      ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                      : <ChevronDown size={11} className="opacity-20" />}
+                  </span>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {dossiers.length === 0 ? (
+            {sorted.length === 0 ? (
               <tr>
                 <td colSpan={11} className="text-center py-12 text-text-muted">
                   <FolderOpen size={32} className="mx-auto mb-2 opacity-30" />
                   <div className="text-sm">Aucun dossier trouvé</div>
                 </td>
               </tr>
-            ) : dossiers.map(d => {
+            ) : sorted.map(d => {
               const livrColor = getLivraisonColor(d)
               return (
                 <tr key={d.id} className="table-row" onClick={() => navigate(`/dossiers/${d.id}`)}>
-                  <td className="px-3 py-2.5 w-6">
+                  <td className="pl-3 pr-1 py-2.5 w-8">
                     {d.estChaud === 1 && <Flame size={14} className="text-accent-orange" title="Chaud" />}
                   </td>
                   <td className="px-3 py-2.5 text-sm font-mono text-accent-blue whitespace-nowrap">{d.numeroDossier}</td>
-                  <td className="px-3 py-2.5 text-sm text-text-primary whitespace-nowrap">{d.clientPrenom} {d.clientNom}</td>
+                  <td className="px-3 py-2.5 text-sm text-text-primary whitespace-nowrap">
+                    <span
+                      className="hover:text-accent-blue hover:underline cursor-pointer"
+                      onClick={e => { e.stopPropagation(); navigate(`/clients/${d.clientId}`) }}
+                    >
+                      {d.clientPrenom} {d.clientNom}
+                    </span>
+                  </td>
                   <td className="px-3 py-2.5 text-sm text-text-secondary whitespace-nowrap">
                     {[d.marqueNom, d.modeleNom].filter(Boolean).join(' ') || '-'}
                   </td>

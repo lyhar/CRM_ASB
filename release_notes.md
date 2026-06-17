@@ -30,6 +30,88 @@
 
 ---
 
+## v1.0.1 — 17 juin 2026
+**Corrections d'affichage & lien Client ↔ Dossier**
+
+### Corrections
+- **Fenêtre déplaçable** : bande de titre draggable ajoutée en haut (la fenêtre était figée)
+- **Avatar utilisateur** : le rond bleu en haut à droite n'est plus caché sous les boutons Windows
+- **Dossiers** : icône 🔥 ne déborde plus sur la colonne N° Dossier (colonne trop étroite)
+- **Clients** : barre de recherche agrandie et correctement redimensionnable
+- **Véhicules** : bouton "Motos" ne se tronque plus à l'affichage
+- **Header** : barre de recherche globale flexible selon la largeur de la fenêtre
+- **Sidebar** : logo aligné avec le header (même hauteur 52px)
+
+### Améliorations
+- **Lien Client ↔ Dossier** : le formulaire dossier initialise maintenant correctement le client lors de l'édition
+- **Fiche client** : bouton "Nouveau dossier" dans l'onglet Dossiers → ouvre le formulaire avec le client pré-sélectionné
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.0.1
+- Fichier : `ASB-CRM-Setup-1.0.1.exe`
+
+---
+
+## v1.0.2 — 17 juin 2026
+**Corrections dates, navigation et données au démarrage**
+
+### Corrections
+- **Dates DATE DEMANDE** : toutes les dates des dossiers importés depuis l'Excel sont maintenant correctement lues (bug xlsx `raw:false` → corrigé avec `cellDates:true`)
+- **Re-import données** : script `reimport.js` pour recorriger les données existantes (143 dossiers et 128 clients retraités)
+- **Nom utilisateur header** : le nom affiché en haut à droite est maintenant lu en base (plus codé en dur)
+
+### Améliorations
+- **Clic client dans liste dossiers** : cliquer sur le nom du client dans la liste des dossiers ouvre directement sa fiche client
+- **Lien Google Maps** : les fiches concessionnaire affichent un lien "Maps" pour ouvrir l'adresse dans Google Maps
+- **Seed au démarrage** : concessions et marques/modèles sont automatiquement chargés à l'installation ou la mise à jour, sans avoir à relancer un script manuellement
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.0.2
+- Fichier : `ASB-CRM-Setup-1.0.2.exe`
+
+---
+
+## v1.0.3 — 17 juin 2026
+**Emails, popup tâches du jour & tableau de bord enrichi**
+
+### Nouveautés
+- **Popup de démarrage** : à l'ouverture, une notification s'affiche avec les événements du jour (anniversaires clients, affaires chaudes, factures en retard +30j, fins de contrat dans 12 mois, suivis 1 an)
+- **Dashboard — onglet "Aujourd'hui"** : liste complète des tâches avec boutons email directs sur chaque item
+- **3 templates d'email relance contrat** disponibles sur chaque fiche dossier (statut "Gagné") :
+  - Suivi satisfaction 1 an après livraison
+  - Relance 6 mois avant fin de contrat
+  - Relance restitution 3 mois avant fin (avec checklist : carrosserie, révision, pneumatiques, clés)
+- **Composeur d'email** : aperçu HTML, copier, ouvrir dans la messagerie, ou envoi direct via SMTP
+- **Paramètres → Email / SMTP** : configuration SMTP (Gmail, Outlook…), mot de passe d'application, nom expéditeur, signature personnalisée
+- **Test SMTP** : bouton "Tester la connexion" qui envoie un email de test
+
+### Corrections
+- Nom utilisateur dans le header se met à jour après modification dans Paramètres (plus codé en dur)
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.0.3
+- Fichier : `ASB-CRM-Setup-1.0.3.exe`
+
+---
+
+## v1.0.4 — 17 juin 2026
+**Image signature, éditeur de templates, email depuis client/dossier, codes postaux**
+
+### Nouveautés
+- **Image dans la signature** : ajoutez l'URL de votre logo dans Paramètres → Email / SMTP — il apparaîtra au-dessus du texte dans chaque email envoyé
+- **Éditeur de templates** : nouvel onglet "Templates email" dans Paramètres pour modifier les 3 templates de relance (sujet + corps HTML) avec les variables `{{prenom}}`, `{{vehicule}}`, `{{financement}}`, `{{dateFinContrat}}`, `{{concessionnaire}}` — bouton "Restaurer défaut" par template
+- **Email depuis la fiche dossier** : bouton "Envoyer un email" dans l'en-tête de chaque dossier (affiché si l'email client est renseigné) — ouvre le composeur avec l'adresse pré-remplie
+- **Email depuis la fiche client** : même bouton dans l'en-tête de chaque fiche client
+
+### Corrections
+- Codes postaux des concessions renseignés pour les principales villes françaises
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.0.4
+- Fichier : `ASB-CRM-Setup-1.0.4.exe`
+
+---
+
 ## Template pour prochaines versions
 
 ## vX.X.X — JJ mois AAAA

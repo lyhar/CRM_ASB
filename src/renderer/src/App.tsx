@@ -10,6 +10,7 @@ import Vehicules from './pages/Vehicules'
 import Commissions from './pages/Commissions'
 import Parametres from './pages/Parametres'
 import UpdateNotification from './components/UpdateNotification'
+import StartupPopup from './components/StartupPopup'
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
         </Route>
       </Routes>
       <UpdateNotification />
+      <StartupPopup />
     </HashRouter>
   )
 }

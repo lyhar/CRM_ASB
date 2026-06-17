@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit2, Trash2, FileText, FolderOpen, Upload, Star } from 'lucide-react'
+import { ArrowLeft, Edit2, Trash2, FileText, FolderOpen, Upload, Star, Plus, Mail } from 'lucide-react'
 import { formatDate, STATUT_LABELS, STATUT_COLORS, FINANCEMENT_LABELS, DOCUMENT_LABELS, formatCurrency } from '../lib/utils'
 import ClientForm from '../components/ClientForm'
+import DossierForm from '../components/DossierForm'
+import EmailComposer from '../components/EmailComposer'
 
 export default function ClientDetail() {
   const { id } = useParams()
@@ -10,6 +12,8 @@ export default function ClientDetail() {
   const [client, setClient] = useState<any>(null)
   const [tab, setTab] = useState<'infos' | 'dossiers' | 'documents'>('infos')
   const [showEdit, setShowEdit] = useState(false)
+  const [showNewDossier, setShowNewDossier] = useState(false)
+  const [emailData, setEmailData] = useState<{ to: string; subject: string; html: string } | null>(null)
 
   const load = async () => {
     const res = await window.api.getClient(Number(id))
@@ -19,7 +23,8 @@ export default function ClientDetail() {
   useEffect(() => { load() }, [id])
 
   const handleDelete = async () => {
-    if (!confirm('Supprimer ce client ?')) return
+    const res = await window.api.confirm('Supprimer ce client ?')
+    if (!res.data) return
     await window.api.deleteClient(Number(id))
     navigate('/clients')
   }
@@ -36,6 +41,13 @@ export default function ClientDetail() {
   }
 
   if (!client) return <div className="text-text-muted p-8">Chargement...</div>
+
+  const isBirthday = (() => {
+    if (!client.dateNaissance) return false
+    const dob = new Date(client.dateNaissance)
+    const today = new Date()
+    return dob.getUTCMonth() === today.getMonth() && dob.getUTCDate() === today.getDate()
+  })()
 
   return (
     <div className="space-y-4">
@@ -54,6 +66,11 @@ export default function ClientDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {client.email && (
+            <button className="btn btn-ghost" onClick={() => setEmailData({ to: client.email, subject: '', html: '' })}>
+              <Mail size={14} /> Envoyer un email
+            </button>
+          )}
           <button className="btn btn-ghost" onClick={() => setShowEdit(true)}>
             <Edit2 size={14} /> Modifier
           </button>
@@ -62,6 +79,13 @@ export default function ClientDetail() {
           </button>
         </div>
       </div>
+
+      {/* Bannière anniversaire */}
+      {isBirthday && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-accent-yellow/40 bg-accent-yellow/10 text-accent-yellow text-sm font-medium">
+          🎂 Aujourd'hui, c'est l'anniversaire de {client.prenom} !
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
@@ -83,6 +107,7 @@ export default function ClientDetail() {
             <h3 className="font-medium text-text-primary text-sm">Informations personnelles</h3>
             {[
               ['Type', client.type === 'PROFESSIONNEL' ? 'Professionnel' : 'Particulier'],
+              ...(client.type === 'PROFESSIONNEL' && client.entreprise ? [['Entreprise', client.entreprise]] : []),
               ['Date de naissance', formatDate(client.dateNaissance)],
               ['Adresse', [client.adresse, client.codePostal, client.ville].filter(Boolean).join(', ') || '-'],
               ['Téléphone', client.telephone || '-'],
@@ -118,6 +143,12 @@ export default function ClientDetail() {
       )}
 
       {tab === 'dossiers' && (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <button className="btn btn-primary" onClick={() => setShowNewDossier(true)}>
+              <Plus size={14} /> Nouveau dossier
+            </button>
+          </div>
         <div className="card p-0">
           <table className="w-full">
             <thead>
@@ -151,6 +182,7 @@ export default function ClientDetail() {
             </tbody>
           </table>
         </div>
+        </div>
       )}
 
       {tab === 'documents' && (
@@ -182,7 +214,14 @@ export default function ClientDetail() {
         </div>
       )}
 
+      {emailData && <EmailComposer {...emailData} onClose={() => setEmailData(null)} />}
       {showEdit && <ClientForm client={client} onClose={() => { setShowEdit(false); load() }} />}
+      {showNewDossier && (
+        <DossierForm
+          prefilledClient={{ id: client.id, prenom: client.prenom, nom: client.nom }}
+          onClose={() => { setShowNewDossier(false); load() }}
+        />
+      )}
     </div>
   )
 }

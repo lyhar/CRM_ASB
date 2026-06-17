@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, cpSync } from 'fs'
 import { autoUpdater } from 'electron-updater'
 import type { Database } from 'sql.js'
 
@@ -48,6 +48,16 @@ function setupAutoUpdater(): void {
     autoUpdater.quitAndInstall()
   })
   ipcMain.handle('app:version', () => app.getVersion())
+}
+
+// Migration : déplacer les données de l'ancien dossier asb-crm vers autolead-crm
+function migrateUserData(): void {
+  const newDataDir = join(app.getPath('appData'), 'autolead-crm')
+  const oldDataDir = join(app.getPath('appData'), 'asb-crm')
+  if (!existsSync(newDataDir) && existsSync(oldDataDir)) {
+    try { cpSync(oldDataDir, newDataDir, { recursive: true }) } catch {}
+  }
+  app.setPath('userData', newDataDir)
 }
 
 function getDbPath(): string {
@@ -109,7 +119,12 @@ async function initDatabase(): Promise<void> {
     db = new SQL.Database()
   }
   createTables()
+  migrateSchema()
   seedInitialData()
+}
+
+function migrateSchema(): void {
+  try { db.run('ALTER TABLE Client ADD COLUMN entreprise TEXT') } catch {}
 }
 
 function createTables(): void {
@@ -130,6 +145,7 @@ function createTables(): void {
       type TEXT NOT NULL DEFAULT 'PARTICULIER',
       nom TEXT NOT NULL,
       prenom TEXT NOT NULL,
+      entreprise TEXT,
       dateNaissance TEXT,
       adresse TEXT,
       codePostal TEXT,
@@ -256,48 +272,66 @@ function createTables(): void {
       FOREIGN KEY (dossierId) REFERENCES Dossier(id)
     )
   `)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS Settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `)
   saveDb()
 }
 
 function seedInitialData(): void {
-  const userCount = queryOne<{ c: number }>('SELECT COUNT(*) as c FROM User')
-  if ((userCount?.c ?? 0) > 0) return
-
-  run(`INSERT INTO User (nom, prenom, email, role) VALUES ('Moreau', 'Antoine', 'admin@asb.fr', 'ADMIN')`)
-
-  const seedPaths = [
-    join(app.getAppPath(), 'context', 'seeds', 'marques_modeles.json'),
-    join(app.getAppPath(), '..', 'context', 'seeds', 'marques_modeles.json'),
-    join(__dirname, '..', '..', '..', 'context', 'seeds', 'marques_modeles.json'),
-    'D:\\projet\\Antoine\\CRM\\context\\seeds\\marques_modeles.json'
+  const seedBasePaths = [
+    join(process.resourcesPath, 'seeds'),
+    join(app.getAppPath(), 'context', 'seeds'),
+    join(__dirname, '..', '..', '..', 'context', 'seeds'),
+    'D:\\projet\\Antoine\\CRM\\context\\seeds'
   ]
 
-  let seedData: { marque: string; type: string; modeles: string[] }[] = []
-  for (const p of seedPaths) {
-    if (existsSync(p)) {
-      try { seedData = JSON.parse(readFileSync(p, 'utf-8')); break } catch {}
+  function findSeedFile(filename: string): string | null {
+    for (const base of seedBasePaths) {
+      const p = join(base, filename)
+      if (existsSync(p)) return p
+    }
+    return null
+  }
+
+  // 1. Seed marques/modèles si vide
+  const marqueCount = queryOne<{ c: number }>('SELECT COUNT(*) as c FROM Marque')
+  if ((marqueCount?.c ?? 0) === 0) {
+    const p = findSeedFile('marques_modeles.json')
+    if (p) {
+      try {
+        const seedData: { marque: string; type: string; modeles: string[] }[] = JSON.parse(readFileSync(p, 'utf-8'))
+        for (const item of seedData) {
+          db.run('INSERT OR IGNORE INTO Marque (nom, type) VALUES (?, ?)', [item.marque, item.type === 'voiture' ? 'VOITURE' : 'MOTO'])
+          const marque = queryOne<{ id: number }>('SELECT id FROM Marque WHERE nom = ?', [item.marque])
+          if (marque) {
+            for (const modele of item.modeles) {
+              db.run('INSERT OR IGNORE INTO Modele (nom, marqueId) VALUES (?, ?)', [modele, marque.id])
+            }
+          }
+        }
+      } catch {}
     }
   }
 
-  for (const item of seedData) {
-    try {
-      db.run('INSERT OR IGNORE INTO Marque (nom, type) VALUES (?, ?)', [item.marque, item.type === 'voiture' ? 'VOITURE' : 'MOTO'])
-      const marque = queryOne<{ id: number }>('SELECT id FROM Marque WHERE nom = ?', [item.marque])
-      if (marque) {
-        for (const modele of item.modeles) {
-          db.run('INSERT OR IGNORE INTO Modele (nom, marqueId) VALUES (?, ?)', [modele, marque.id])
-        }
-      }
-    } catch {}
+  // 2. Créer l'utilisateur admin si aucun utilisateur
+  const userCount = queryOne<{ c: number }>('SELECT COUNT(*) as c FROM User')
+  if ((userCount?.c ?? 0) === 0) {
+    run(`INSERT INTO User (nom, prenom, email, role) VALUES ('Moreau', 'Antoine', 'admin@asb.fr', 'ADMIN')`)
   }
+
   saveDb()
 }
 
 function generateNumeroDossier(): string {
   const year = new Date().getFullYear()
-  const r = queryOne<{ c: number }>(`SELECT COUNT(*) as c FROM Dossier WHERE numeroDossier LIKE ?`, [`ASB-${year}-%`])
+  const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'AL'
+  const r = queryOne<{ c: number }>(`SELECT COUNT(*) as c FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
   const count = (r?.c ?? 0) + 1
-  return `ASB-${year}-${String(count).padStart(4, '0')}`
+  return `${prefix}-${year}-${String(count).padStart(4, '0')}`
 }
 
 function createWindow(): void {
@@ -433,7 +467,7 @@ function registerIpcHandlers(): void {
       let q = `SELECT cp.*,COUNT(d.id) as nbDossiers,COALESCE(SUM(CASE WHEN d.statutCommission IS NOT NULL THEN d.montantCommission ELSE 0 END),0) as totalCommissions FROM ContactPro cp LEFT JOIN Dossier d ON d.contactProId=cp.id WHERE 1=1`
       const p: any[] = []
       if (f?.search) { q += ` AND (cp.entreprise LIKE ? OR cp.nom LIKE ? OR cp.ville LIKE ?)`; const s=`%${f.search}%`; p.push(s,s,s) }
-      q += ` GROUP BY cp.id ORDER BY cp.entreprise`
+      q += ` GROUP BY cp.id ORDER BY nbDossiers DESC, cp.entreprise`
       return ok(query(q, p))
     } catch (e) { return err(e) }
   })
@@ -501,6 +535,17 @@ function registerIpcHandlers(): void {
   })
   ipcMain.handle('documents:delete', (_, id) => { try { run('DELETE FROM Document WHERE id=?', [id]); return ok() } catch (e) { return err(e) } })
   ipcMain.handle('documents:open', async (_, chemin) => { try { await shell.openPath(chemin); return ok() } catch (e) { return err(e) } })
+  ipcMain.handle('shell:openExternal', async (_, url: string) => {
+    try { await shell.openExternal(url); return ok() } catch (e) { return err(e) }
+  })
+  ipcMain.handle('dialog:confirm', async (_, message: string) => {
+    const r = await dialog.showMessageBox(mainWindow, {
+      type: 'question', buttons: ['Annuler', 'Confirmer'],
+      defaultId: 1, cancelId: 0, message
+    })
+    mainWindow.focus()
+    return ok(r.response === 1)
+  })
 
   // RELANCES
   ipcMain.handle('relances:create', (_, d) => { try { run('INSERT INTO Relance (dossierId,dateRelance,notes) VALUES (?,?,?)', [d.dossierId, d.dateRelance, d.notes||null]); return ok() } catch (e) { return err(e) } })
@@ -528,6 +573,71 @@ function registerIpcHandlers(): void {
   ipcMain.handle('dialog:openDocument', async () => {
     const r = await dialog.showOpenDialog(mainWindow, { title: 'Importer un document', properties: ['openFile'], filters: [{ name: 'Documents', extensions: ['pdf','jpg','jpeg','png','doc','docx','xls','xlsx'] },{ name: 'Tous', extensions: ['*'] }] })
     return ok(r)
+  })
+
+  // IMAGE
+  ipcMain.handle('image:readAsBase64', async () => {
+    try {
+      const r = await dialog.showOpenDialog(mainWindow, {
+        title: 'Choisir une image',
+        properties: ['openFile'],
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'] }]
+      })
+      if (r.canceled || !r.filePaths[0]) return ok(null)
+      const data = readFileSync(r.filePaths[0])
+      const ext = r.filePaths[0].split('.').pop()?.toLowerCase() || 'png'
+      const mime = ext === 'svg' ? 'image/svg+xml' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png'
+      return ok(`data:${mime};base64,${data.toString('base64')}`)
+    } catch (e) { return err(e) }
+  })
+
+  // SETTINGS
+  ipcMain.handle('settings:getAll', () => {
+    try {
+      const rows = query<{ key: string; value: string }>('SELECT key, value FROM Settings')
+      const s: Record<string, string> = {}
+      rows.forEach(r => { s[r.key] = r.value })
+      return ok(s)
+    } catch (e) { return err(e) }
+  })
+  ipcMain.handle('settings:set', (_, key: string, value: string) => {
+    try {
+      run('INSERT INTO Settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [key, value])
+      return ok()
+    } catch (e) { return err(e) }
+  })
+
+  // EMAIL
+  ipcMain.handle('email:send', async (_, { to, subject, html }: { to: string; subject: string; html: string }) => {
+    try {
+      const rows = query<{ key: string; value: string }>('SELECT key, value FROM Settings')
+      const s: Record<string, string> = {}
+      rows.forEach(r => { s[r.key] = r.value })
+      if (!s.smtp_host || !s.smtp_user || !s.smtp_password) return err('SMTP non configuré. Allez dans Paramètres → Email.')
+      const nodemailer = require('nodemailer')
+      const transporter = nodemailer.createTransport({
+        host: s.smtp_host,
+        port: parseInt(s.smtp_port || '587'),
+        secure: s.smtp_secure === 'true',
+        auth: { user: s.smtp_user, pass: s.smtp_password },
+        tls: { rejectUnauthorized: false }
+      })
+      await transporter.sendMail({ from: s.smtp_from || s.smtp_user, to, subject, html })
+      return ok()
+    } catch (e) { return err(e) }
+  })
+
+  // TÂCHES DU JOUR
+  ipcMain.handle('dashboard:getTachesJour', () => {
+    try {
+      const anniversaires = query(`SELECT id,nom,prenom,dateNaissance,telephone,email FROM Client WHERE dateNaissance IS NOT NULL AND strftime('%m-%d',dateNaissance)=strftime('%m-%d','now')`)
+      const dossiersChauds = query(`SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.email as clientEmail,c.telephone as clientTel FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE d.estChaud=1 AND d.statut IN ('OUVERT','EN_ATTENTE') ORDER BY d.updatedAt ASC`)
+      const commissionsEnRetard = query(`SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.email as clientEmail FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE d.statutCommission='FACTUREE' AND d.dateFacturation < datetime('now','-30 days') ORDER BY d.dateFacturation ASC`)
+      const finContratsProches = query(`SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.email as clientEmail,c.telephone as clientTel,date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months') as dateFinContrat,CAST(julianday(date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months'))-julianday('now') AS INTEGER) as joursRestants FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE d.dateLivraisonReelle IS NOT NULL AND d.dureeContrat IS NOT NULL AND d.statut='GAGNE' AND date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months')>=date('now') AND date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months')<=date('now','+365 days') ORDER BY dateFinContrat ASC`)
+      const suiviAnnuel = query(`SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.email as clientEmail FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE d.dateLivraisonReelle IS NOT NULL AND d.statut='GAGNE' AND date(d.dateLivraisonReelle,'+1 year') BETWEEN date('now','-7 days') AND date('now','+7 days')`)
+      const sansAvisGoogle = query(`SELECT id,nom,prenom,email,telephone FROM Client WHERE avisGoogle=0 AND email IS NOT NULL AND email!='' ORDER BY createdAt DESC LIMIT 10`)
+      return ok({ anniversaires, dossiersChauds, commissionsEnRetard, finContratsProches, suiviAnnuel, sansAvisGoogle })
+    } catch (e) { return err(e) }
   })
 
   // IMPORT EXCEL
@@ -561,6 +671,7 @@ function registerIpcHandlers(): void {
 }
 
 app.whenReady().then(async () => {
+  migrateUserData()
   await initDatabase()
   registerIpcHandlers()
   setupAutoUpdater()

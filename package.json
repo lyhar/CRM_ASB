@@ -1,9 +1,9 @@
 {
-  "name": "asb-crm",
-  "version": "1.0.0",
-  "description": "CRM ASB - Apporteur d'affaires automobile & moto",
+  "name": "autolead-crm",
+  "version": "1.0.6",
+  "description": "CRM pour apporteur d'affaires automobile & moto",
   "main": "out/main/index.js",
-  "author": "ASB",
+  "author": "AutoLead",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
@@ -14,10 +14,15 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
+    "@tiptap/extension-underline": "^3.27.0",
+    "@tiptap/react": "^3.27.0",
+    "@tiptap/starter-kit": "^3.27.0",
+    "@types/nodemailer": "^8.0.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "electron-updater": "^6.8.9",
     "lucide-react": "^0.454.0",
+    "nodemailer": "^9.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
@@ -44,8 +49,8 @@
     "vite": "^5.4.11"
   },
   "build": {
-    "appId": "fr.asb.crm",
-    "productName": "ASB CRM",
+    "appId": "fr.autolead.crm",
+    "productName": "AutoLead CRM",
     "win": {
       "target": "nsis"
     },
@@ -54,7 +59,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ASB CRM"
+      "shortcutName": "AutoLead CRM"
     },
     "publish": {
       "provider": "github",
@@ -67,6 +72,10 @@
       {
         "from": "node_modules/sql.js/dist/sql-wasm.wasm",
         "to": "."
+      },
+      {
+        "from": "context/seeds",
+        "to": "seeds"
       }
     ],
     "files": [
