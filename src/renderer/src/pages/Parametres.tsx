@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Edit2, Trash2, X, Shield, User, Upload, Mail, Check, Image, FileText, RotateCcw, Loader2, Database, FolderOpen, AlertTriangle } from 'lucide-react'
 import { DEFAULT_TEMPLATES } from '../lib/emailTemplates'
 import RichTextEditor from '../components/RichTextEditor'
+import ExcelImportModal from '../components/ExcelImportModal'
 
 type SmtpState = {
   smtp_host: string; smtp_port: string; smtp_secure: string
@@ -64,6 +65,7 @@ export default function Parametres() {
   const [form, setForm] = useState({ nom: '', prenom: '', email: '', role: 'AGENT' })
   const [saving, setSaving] = useState(false)
   const [importStatus, setImportStatus] = useState('')
+  const [importModal, setImportModal] = useState<{ filePath: string; fileName: string } | null>(null)
 
   const [smtp, setSmtp] = useState<SmtpState>({
     smtp_host: '', smtp_port: '587', smtp_secure: 'false',
@@ -177,15 +179,17 @@ export default function Parametres() {
   const handleImport = async () => {
     const res = await window.api.openFileDialog({ properties: ['openFile'], filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
     if (res.data?.canceled || !res.data?.filePaths?.[0]) return
-    setImportStatus('Import en cours...')
-    const importRes = await window.api.importExcel(res.data.filePaths[0])
-    if (importRes.success) {
-      const { imported, skipped } = importRes.data
-      setImportStatus(`✓ ${imported} dossiers importés${skipped ? ` (${skipped} doublons ignorés)` : ''}`)
-    } else {
-      setImportStatus(`Erreur : ${importRes.error}`)
+    const filePath = res.data.filePaths[0]
+    const fileName = filePath.split(/[\\/]/).pop() || filePath
+    setImportModal({ filePath, fileName })
+  }
+
+  const handlePurge = async () => {
+    const res = await window.api.purgeData()
+    if (res.success && res.data) {
+      setImportStatus('✓ Données purgées avec succès. Une sauvegarde a été créée automatiquement.')
+      setTimeout(() => setImportStatus(''), 6000)
     }
-    setTimeout(() => setImportStatus(''), 5000)
   }
 
   const loadBackups = async () => {
@@ -439,9 +443,12 @@ export default function Parametres() {
           Importer le fichier Excel actuel pour migrer les données vers le CRM.
           Les clients et dossiers existants seront créés automatiquement.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button className="btn btn-ghost border border-border" onClick={handleImport}>
             <Upload size={14} /> Importer un fichier Excel
+          </button>
+          <button className="btn btn-ghost border border-red-800 text-accent-red hover:bg-red-900/20" onClick={handlePurge}>
+            <Trash2 size={14} /> Purger toutes les données
           </button>
           {importStatus && (
             <span className={`text-sm ${importStatus.startsWith('✓') ? 'text-accent-green' : 'text-accent-red'}`}>
@@ -603,6 +610,19 @@ export default function Parametres() {
             </div>
           </div>
         </div>
+      )}
+
+      {importModal && (
+        <ExcelImportModal
+          filePath={importModal.filePath}
+          fileName={importModal.fileName}
+          onClose={() => setImportModal(null)}
+          onDone={({ imported, skipped }) => {
+            setImportModal(null)
+            setImportStatus(`✓ ${imported} dossiers importés${skipped ? ` (${skipped} doublons ignorés)` : ''}`)
+            setTimeout(() => setImportStatus(''), 6000)
+          }}
+        />
       )}
     </div>
   )

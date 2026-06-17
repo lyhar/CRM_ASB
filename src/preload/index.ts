@@ -56,7 +56,9 @@ const api = {
   getDashboardStats: () => ipcRenderer.invoke('dashboard:getStats'),
 
   // Import Excel
-  importExcel: (filePath: string) => ipcRenderer.invoke('import:excel', filePath),
+  importExcelPreview: (filePath: string) => ipcRenderer.invoke('import:preview', filePath),
+  importExcel: (filePath: string, mapping: Record<string, number>) => ipcRenderer.invoke('import:excel', filePath, mapping),
+  purgeData: () => ipcRenderer.invoke('data:purge'),
 
   // File dialog
   openFileDialog: (options?: unknown) => ipcRenderer.invoke('dialog:openFile', options),

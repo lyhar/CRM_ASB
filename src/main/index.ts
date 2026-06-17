@@ -743,15 +743,29 @@ function registerIpcHandlers(): void {
     } catch (e) { return err(e) }
   })
 
-  // IMPORT EXCEL
-  ipcMain.handle('import:excel', (_, filePath) => {
+  // PREVIEW EXCEL (headers + sample rows)
+  ipcMain.handle('import:preview', (_, filePath: string) => {
+    try {
+      const XLSX = require('xlsx')
+      const wb = XLSX.readFile(filePath, { cellDates: true })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
+      const headers = (rows[0] || []).map((h: any) => String(h ?? '').trim())
+      const sampleRows = rows.slice(1, 6).map(r =>
+        headers.map((_: any, i: number) => String(r[i] ?? '').trim())
+      )
+      return ok({ headers, sampleRows, totalRows: rows.length - 1 })
+    } catch (e) { return err(e) }
+  })
+
+  // IMPORT EXCEL avec mapping manuel
+  ipcMain.handle('import:excel', (_, filePath: string, mapping: Record<string, number>) => {
     try {
       const XLSX = require('xlsx')
       const wb = XLSX.readFile(filePath, { cellDates: true })
       const ws = wb.Sheets[wb.SheetNames[0]]
       const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
 
-      // Helpers
       const str = (v: any) => String(v ?? '').trim()
       const isOui = (v: any) => ['O', 'OUI', '1', 'YES', 'X'].includes(str(v).toUpperCase())
       const parseNum = (v: any): number | null => {
@@ -761,69 +775,55 @@ function registerIpcHandlers(): void {
       }
       const parseDate = (v: any): string | null => {
         if (!v) return null
-        try {
-          const d = new Date(v)
-          return isNaN(d.getTime()) ? null : d.toISOString()
-        } catch { return null }
+        try { const d = new Date(v); return isNaN(d.getTime()) ? null : d.toISOString() } catch { return null }
+      }
+      const col = (row: any[], key: string) => {
+        const idx = mapping[key]
+        return (idx !== undefined && idx !== null && idx >= 0) ? row[idx] : undefined
       }
 
-      // Colonnes (0-indexé) :
-      // 0=DATE DEMANDE  1=NOM  2=PRENOM  3=PRO/PART  4=LOA/CASH  5=NEUF/VO
-      // 6=MARQUE  7=MODELE  8=CARACT.  9=PRIX/LOYER  10=APPORT  11=REPRISE O/N
-      // 12=MODELE REPRISE  13=PRIX  14=KM  15=CHAUD  16=CONCESSION
-      // 17=COMMANDE O/N  18=DATE LIV  19=FACTURE O/N  20=PAYE O/N
-      // 21=DATE RELANCE FACT  22=MONTANT TTC  23=AVIS GOOGLE
-
       const year = new Date().getFullYear()
-      const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'AL'
+      const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'TRJ'
       const rMax = queryOne<{ max: string | null }>(`SELECT MAX(numeroDossier) as max FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
       let counter = rMax?.max ? parseInt(rMax.max.split('-').pop() || '0') + 1 : 1
 
-      let imported = 0
-      let skipped = 0
+      let imported = 0, skipped = 0
 
       db.run('BEGIN TRANSACTION')
       try {
         for (let i = 1; i < rows.length; i++) {
           const r = rows[i]
-          const nom = str(r[1])
-          const prenom = str(r[2])
+          const nom = str(col(r, 'nom'))
+          const prenom = str(col(r, 'prenom'))
           if (!nom) continue
 
-          // Client
-          const type = str(r[3]).toUpperCase() === 'PRO' ? 'PROFESSIONNEL' : 'PARTICULIER'
-          const avisGoogle = isOui(r[23]) ? 1 : 0
+          const type = str(col(r, 'typeClient')).toUpperCase().includes('PRO') ? 'PROFESSIONNEL' : 'PARTICULIER'
+          const avisGoogle = isOui(col(r, 'avisGoogle')) ? 1 : 0
+
           let clientId: number
           const existing = queryOne<{ id: number }>('SELECT id FROM Client WHERE nom=? AND prenom=?', [nom, prenom])
           if (!existing) {
-            db.run(
-              'INSERT INTO Client (nom,prenom,type,estPremierAppelant,avisGoogle,updatedAt) VALUES (?,?,?,0,?,datetime("now"))',
-              [nom, prenom, type, avisGoogle]
-            )
+            db.run('INSERT INTO Client (nom,prenom,type,estPremierAppelant,avisGoogle,updatedAt) VALUES (?,?,?,0,?,datetime("now"))',
+              [nom, prenom, type, avisGoogle])
             clientId = queryOne<{ id: number }>('SELECT last_insert_rowid() as id')?.id ?? 0
           } else {
-            // Mettre à jour avisGoogle si disponible
             if (avisGoogle) db.run('UPDATE Client SET avisGoogle=1 WHERE id=?', [existing.id])
             clientId = existing.id
           }
 
-          // Dédoublonnage dossier
-          const dosDate = parseDate(r[0])?.split('T')[0] ?? new Date().toISOString().split('T')[0]
+          const dosDate = parseDate(col(r, 'dateDemande'))?.split('T')[0] ?? new Date().toISOString().split('T')[0]
           if (queryOne('SELECT id FROM Dossier WHERE clientId=? AND DATE(dateDemande)=?', [clientId, dosDate])) { skipped++; continue }
 
-          // Financement
-          const fin = str(r[4]).toUpperCase()
-          const typeFinancement = fin === 'CASH' ? 'CASH' : fin === 'LOA' ? 'LOA' : 'LLD'
+          const fin = str(col(r, 'typeFinancement')).toUpperCase()
+          const typeFinancement = fin.includes('CASH') ? 'CASH' : fin.includes('LLD') ? 'LLD' : 'LOA'
 
-          // Statut & commission
-          const commande = isOui(r[17])
-          const paye = isOui(r[20])
-          const facture = isOui(r[19])
+          const commande = isOui(col(r, 'commandeEffectuee'))
+          const paye = isOui(col(r, 'paye'))
+          const facture = isOui(col(r, 'facture'))
           const statut = commande ? 'GAGNE' : 'OUVERT'
           const statutCommission = paye ? 'PAYEE' : facture ? 'FACTUREE' : null
 
-          // Concession : chercher par nom d'entreprise
-          const concessionNom = str(r[16])
+          const concessionNom = str(col(r, 'concession'))
           const contactPro = concessionNom
             ? queryOne<{ id: number }>('SELECT id FROM ContactPro WHERE entreprise LIKE ?', [`%${concessionNom}%`])
             : null
@@ -832,38 +832,14 @@ function registerIpcHandlers(): void {
           counter++
 
           db.run(
-            `INSERT INTO Dossier (
-              numeroDossier,clientId,dateDemande,typeFinancement,statut,
-              neufOuOccasion,marqueNom,modeleNom,caracteristiques,
-              valeurVehicule,loyerMensuel,apport,
-              repriseOuiNon,repriseModele,
-              kilometrageContrat,
-              estChaud,contactProId,commandeEffectuee,
-              dateLivraisonReelle,statutCommission,dateRelance,montantCommission,
-              updatedAt
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime("now"))`,
-            [
-              numero, clientId,
-              parseDate(r[0]) ?? new Date().toISOString(),
-              typeFinancement, statut,
-              str(r[5]) || null,
-              str(r[6]) || null,
-              str(r[7]) || null,
-              str(r[8]) || null,
-              parseNum(r[13]),
-              parseNum(r[9]),
-              parseNum(r[10]),
-              isOui(r[11]) ? 1 : 0,
-              str(r[12]) || null,
-              parseNum(r[14]),
-              isOui(r[15]) ? 1 : 0,
-              contactPro?.id ?? null,
-              commande ? 1 : 0,
-              parseDate(r[18]),
-              statutCommission,
-              parseDate(r[21]),
-              parseNum(r[22]),
-            ]
+            `INSERT INTO Dossier (numeroDossier,clientId,dateDemande,typeFinancement,statut,neufOuOccasion,marqueNom,modeleNom,caracteristiques,valeurVehicule,loyerMensuel,apport,repriseOuiNon,repriseModele,kilometrageContrat,estChaud,contactProId,commandeEffectuee,dateLivraisonReelle,statutCommission,dateRelance,montantCommission,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime("now"))`,
+            [numero, clientId, parseDate(col(r, 'dateDemande')) ?? new Date().toISOString(), typeFinancement, statut,
+             str(col(r, 'neufOuOccasion')) || null, str(col(r, 'marqueNom')) || null, str(col(r, 'modeleNom')) || null,
+             str(col(r, 'caracteristiques')) || null, parseNum(col(r, 'valeurVehicule')), parseNum(col(r, 'prixOuLoyer')),
+             parseNum(col(r, 'apport')), isOui(col(r, 'repriseOuiNon')) ? 1 : 0, str(col(r, 'repriseModele')) || null,
+             parseNum(col(r, 'kilometrageContrat')), isOui(col(r, 'estChaud')) ? 1 : 0, contactPro?.id ?? null,
+             commande ? 1 : 0, parseDate(col(r, 'dateLivraison')), statutCommission,
+             parseDate(col(r, 'dateRelance')), parseNum(col(r, 'montantCommission'))]
           )
           imported++
         }
@@ -873,8 +849,29 @@ function registerIpcHandlers(): void {
         try { db.run('ROLLBACK') } catch {}
         throw e
       }
-
       return ok({ imported, skipped })
+    } catch (e) { return err(e) }
+  })
+
+  // PURGE toutes les données (garde utilisateurs + paramètres)
+  ipcMain.handle('data:purge', async () => {
+    try {
+      const r = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Purge des données',
+        message: 'Supprimer TOUTES les données ?\n\nClients, dossiers, contacts pro, documents et relances seront définitivement supprimés.\nUne sauvegarde sera créée automatiquement avant la purge.',
+        buttons: ['Annuler', 'Purger'],
+        defaultId: 0, cancelId: 0
+      })
+      if (r.response !== 1) return ok(null)
+      backupDatabase()
+      db.run('DELETE FROM Relance')
+      db.run('DELETE FROM Document')
+      db.run('DELETE FROM Dossier')
+      db.run('DELETE FROM Client')
+      db.run('DELETE FROM ContactPro')
+      saveDb()
+      return ok(true)
     } catch (e) { return err(e) }
   })
 
