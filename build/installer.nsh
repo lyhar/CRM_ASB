@@ -5,7 +5,8 @@
 !macro customInit
   ; Répertoire d'install par défaut : Program Files\CRM Trajectoire\app
   StrCpy $INSTDIR "$PROGRAMFILES64\CRM Trajectoire\app"
-  StrCpy $DataDirPath "$PROGRAMFILES64\CRM Trajectoire\data"
+  SetShellVarContext all
+  StrCpy $DataDirPath "$APPDATA\CRM Trajectoire\data"
 !macroend
 
 ; Page de sélection du dossier DATA — affichée après le choix du dossier APP
@@ -16,7 +17,7 @@
 !macro customInstall
   ; Créer le dossier data et donner les droits d'écriture aux utilisateurs
   CreateDirectory "$DataDirPath"
-  ExecWait 'icacls "$DataDirPath" /grant Users:(OI)(CI)F /T /Q'
+  ExecWait 'icacls "$DataDirPath" /grant *S-1-5-32-545:(OI)(CI)F /T /Q'
   ; Sauvegarder le chemin des données dans le registre
   WriteRegStr HKLM "Software\CRM Trajectoire" "DataDir" "$DataDirPath"
 !macroend
@@ -32,9 +33,9 @@ Var DataDirPath
 Var DataDirControl
 
 Function DataDirPage
-  ; Propose automatiquement le dossier data à côté du dossier app
-  ${GetParent} $INSTDIR $0
-  StrCpy $DataDirPath "$0\data"
+  ; Propose un dossier data partage sous ProgramData
+  SetShellVarContext all
+  StrCpy $DataDirPath "$APPDATA\CRM Trajectoire\data"
 
   nsDialogs::Create 1018
   Pop $0

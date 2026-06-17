@@ -112,6 +112,25 @@
 
 ---
 
+## v1.3.6 — 17 juin 2026
+**Droits d'écriture et dossier de données**
+
+### Corrections
+- L'application teste maintenant réellement que le dossier de données est écrivable au démarrage.
+- Si le dossier configuré par l'installation n'est pas accessible en écriture, l'application bascule vers un dossier sûr au lieu de planter.
+- Les nouvelles installations utilisent un dossier de données partagé sous ProgramData plutôt qu'un dossier voisin de l'exe dans Program Files.
+- Les droits d'écriture du dossier de données sont appliqués via le SID Windows des utilisateurs, plus fiable sur Windows en français.
+
+### Technique
+- Évite de lancer l'application en administrateur à chaque ouverture.
+- L'installation reste per-machine/admin, mais l'utilisation quotidienne ne devrait plus dépendre des droits administrateur.
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.3.6
+- Fichier : `CRM Trajectoire Setup 1.3.6.exe`
+
+---
+
 ## v1.3.5 — 17 juin 2026
 **Refonte graphique et corrections de mise en page**
 

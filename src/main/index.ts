@@ -6,6 +6,7 @@ import type { Database } from 'sql.js'
 
 let db: Database
 let mainWindow: BrowserWindow
+let cachedDataDir: string | null = null
 
 function setupAutoUpdater(): void {
   autoUpdater.autoDownload = false
@@ -65,7 +66,37 @@ function setupAutoUpdater(): void {
 
 // Dossier de données : lu depuis le registre (chemin choisi par l'utilisateur à l'installation)
 // Fallback : dossier frère du dossier d'installation (ex: C:\Program Files\CRM Trajectoire\data)
-function getDataDir(): string {
+function canWriteDirectory(dir: string): boolean {
+  try {
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    const testFile = join(dir, `.write-test-${process.pid}-${Date.now()}.tmp`)
+    writeFileSync(testFile, 'ok')
+    unlinkSync(testFile)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function readRegistryDataDir(): string | null {
+  try {
+    const { execSync } = require('child_process')
+    const out: string = execSync('reg query "HKLM\\Software\\CRM Trajectoire" /v DataDir', {
+      encoding: 'utf8', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe']
+    })
+    const match = out.match(/DataDir\s+REG_SZ\s+(.+)/)
+    return match ? match[1].trim() : null
+  } catch {
+    return null
+  }
+}
+
+function getProgramDataDir(): string {
+  const base = process.env.PROGRAMDATA || 'C:\\ProgramData'
+  return join(base, 'CRM Trajectoire', 'data')
+}
+
+function getLegacyDataDir(): string {
   if (!app.isPackaged) {
     const dev = join(app.getAppPath(), 'dev-data')
     if (!existsSync(dev)) mkdirSync(dev, { recursive: true })
@@ -92,6 +123,28 @@ function getDataDir(): string {
 }
 
 // Mirror AppData — survivra toujours aux réinstallations/mises à jour
+function getDataDir(): string {
+  if (!app.isPackaged) return getLegacyDataDir()
+  if (cachedDataDir && canWriteDirectory(cachedDataDir)) return cachedDataDir
+
+  const appDir = dirname(app.getPath('exe'))
+  const candidates = [
+    readRegistryDataDir(),
+    join(dirname(appDir), 'data'),
+    getProgramDataDir(),
+    getAppDataMirrorDir(),
+  ].filter(Boolean) as string[]
+
+  for (const dir of candidates) {
+    if (canWriteDirectory(dir)) {
+      cachedDataDir = dir
+      return dir
+    }
+  }
+
+  throw new Error(`Aucun dossier de donnees ecrivable trouve. Verifiez les droits Windows sur ${candidates.join(' ou ')}`)
+}
+
 function getAppDataMirrorDir(): string {
   const dir = join(app.getPath('appData'), 'CRM Trajectoire')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
