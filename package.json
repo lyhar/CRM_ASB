@@ -1,9 +1,9 @@
 {
-  "name": "autolead-crm",
-  "version": "1.1.2",
-  "description": "CRM pour apporteur d'affaires automobile & moto",
+  "name": "trajectoire-crm",
+  "version": "1.2.0",
+  "description": "CRM pour courtage automobile & moto",
   "main": "out/main/index.js",
-  "author": "AutoLead",
+  "author": "Trajectoire",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
@@ -49,8 +49,8 @@
     "vite": "^5.4.11"
   },
   "build": {
-    "appId": "fr.autolead.crm",
-    "productName": "AutoLead CRM",
+    "appId": "fr.trajectoire.crm",
+    "productName": "Trajectoire",
     "win": {
       "target": "nsis"
     },
@@ -59,7 +59,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "AutoLead CRM"
+      "shortcutName": "Trajectoire"
     },
     "publish": {
       "provider": "github",

@@ -63,28 +63,29 @@ function setupAutoUpdater(): void {
   }))
 }
 
-// Dossier de données : AppData\Roaming\AutoLead CRM\ (toujours accessible en écriture)
+// Dossier de données : AppData\Roaming\Trajectoire\ (toujours accessible en écriture)
 function getDataDir(): string {
   const dir = app.isPackaged
-    ? join(app.getPath('appData'), 'AutoLead CRM')
+    ? join(app.getPath('appData'), 'Trajectoire')
     : join(app.getAppPath(), 'dev-data')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
 
-// Migration : récupère les données depuis les anciens emplacements
+// Migration : récupère les données depuis tous les anciens emplacements (toutes versions)
 function migrateToNewDataDir(): void {
   const dataDir = getDataDir()
   if (existsSync(join(dataDir, 'crm.db'))) return // déjà migré
 
   const exeDir = app.isPackaged ? dirname(app.getPath('exe')) : ''
   const candidates = [
-    join(exeDir, 'data'),                              // v1.0.9–v1.1.1 (next to exe, broken)
+    join(app.getPath('appData'), 'AutoLead CRM'),      // v1.1.2
+    join(exeDir, 'data'),                              // v1.0.9–v1.1.1 (next to exe)
     join(app.getPath('appData'), 'autolead-crm'),      // ancien AppData
     join(app.getPath('appData'), 'asb-crm'),           // encore plus ancien
   ]
   for (const src of candidates) {
-    if (existsSync(join(src, 'crm.db'))) {
+    if (src && existsSync(join(src, 'crm.db'))) {
       try { cpSync(src, dataDir, { recursive: true }) } catch (e) { console.error('Migration failed:', e) }
       break
     }
@@ -882,7 +883,7 @@ function registerIpcHandlers(): void {
     try {
       const r = await dialog.showSaveDialog(mainWindow, {
         title: 'Sauvegarder la base de données',
-        defaultPath: `autolead_sauvegarde_${new Date().toISOString().slice(0, 10)}.db`,
+        defaultPath: `trajectoire_sauvegarde_${new Date().toISOString().slice(0, 10)}.db`,
         filters: [{ name: 'Base de données SQLite', extensions: ['db'] }]
       })
       if (r.canceled || !r.filePath) return ok(null)
@@ -970,7 +971,7 @@ app.whenReady().then(async () => {
     await dialog.showMessageBox({
       type: 'error',
       title: 'Erreur au démarrage',
-      message: `AutoLead CRM n'a pas pu démarrer.\n\n${String(e)}\n\nVeuillez contacter le support.`,
+      message: `Trajectoire n'a pas pu démarrer.\n\n${String(e)}\n\nVeuillez contacter le support.`,
       buttons: ['Quitter']
     })
     app.quit()

@@ -34,7 +34,7 @@ export default function Sidebar() {
               <div className="w-7 h-7 rounded bg-accent-blue flex items-center justify-center flex-shrink-0">
                 <Car size={14} className="text-white" />
               </div>
-              <span className="font-semibold text-text-primary text-sm tracking-wide">AutoLead CRM</span>
+              <span className="font-semibold text-text-primary text-sm tracking-wide">Trajectoire</span>
             </div>
           )}
           {collapsed && (

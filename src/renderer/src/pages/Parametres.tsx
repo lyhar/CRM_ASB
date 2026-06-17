@@ -123,8 +123,8 @@ export default function Parametres() {
     setSmtpStatus('')
     const res = await window.api.sendEmail({
       to: smtp.smtp_user,
-      subject: 'Test SMTP — AutoLead CRM',
-      html: '<p>Email de test envoyé depuis AutoLead CRM. Configuration SMTP fonctionnelle ✅</p>'
+      subject: 'Test SMTP — Trajectoire',
+      html: '<p>Email de test envoyé depuis Trajectoire. Configuration SMTP fonctionnelle ✅</p>'
     })
     setTestSending(false)
     setSmtpStatus(res.success ? 'Email de test envoyé avec succès !' : `Erreur : ${res.error}`)
@@ -458,7 +458,7 @@ export default function Parametres() {
             {/* Identité app */}
             <div className="space-y-2">
               {[
-                ['Application', 'AutoLead CRM'],
+                ['Application', 'Trajectoire'],
                 ['Version', appInfo.version],
                 ['Mode', appInfo.packaged ? 'Production (installé)' : 'Développement'],
               ].map(([l, v]) => (
@@ -507,7 +507,7 @@ export default function Parametres() {
           </div>
         ) : (
           <div className="space-y-2 text-sm mb-4">
-            <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">AutoLead CRM</span></div>
+            <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">Trajectoire</span></div>
           </div>
         )}
         <UpdateChecker />

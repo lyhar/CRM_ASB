@@ -67,8 +67,12 @@ function substitute(text: string, vars: Record<string, string>): string {
 
 export function wrapEmailHtml(body: string, signature: string, imgUrl = ''): string {
   const hasSig = signature || imgUrl
+  // Si la signature ne contient pas de balises HTML, convertir les \n en <br>
+  const sigHtml = signature && !signature.includes('<')
+    ? signature.replace(/\n/g, '<br>')
+    : signature
   const sigBlock = hasSig
-    ? `<br><hr style="border:none;border-top:1px solid #eee;margin:16px 0;"><div style="color:#666;font-size:13px;">${imgUrl ? `<img src="${imgUrl}" style="max-height:80px;display:block;margin-bottom:8px;" />` : ''}${signature}</div>`
+    ? `<br><hr style="border:none;border-top:1px solid #eee;margin:16px 0;"><div style="color:#666;font-size:13px;line-height:1.6;">${imgUrl ? `<img src="${imgUrl}" style="max-height:80px;display:block;margin-bottom:8px;" alt="signature" />` : ''}${sigHtml}</div>`
     : ''
   return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">\n${body}\n${sigBlock}\n</div>`
 }
