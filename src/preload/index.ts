@@ -79,6 +79,12 @@ const api = {
   // Tâches du jour
   getTachesJour: () => ipcRenderer.invoke('dashboard:getTachesJour'),
 
+  // Sauvegardes
+  createBackup: () => ipcRenderer.invoke('backup:create'),
+  restoreBackup: () => ipcRenderer.invoke('backup:restore'),
+  listBackups: () => ipcRenderer.invoke('backup:list'),
+  openBackupFolder: () => ipcRenderer.invoke('backup:openFolder'),
+
   // Mises à jour
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),

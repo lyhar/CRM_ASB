@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Edit2, Trash2, X, Shield, User, Upload, Mail, Check, Image, FileText, RotateCcw, Loader2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, Shield, User, Upload, Mail, Check, Image, FileText, RotateCcw, Loader2, Database, FolderOpen, AlertTriangle } from 'lucide-react'
 import { DEFAULT_TEMPLATES } from '../lib/emailTemplates'
 import RichTextEditor from '../components/RichTextEditor'
 
@@ -57,7 +57,7 @@ function UpdateChecker() {
 }
 
 export default function Parametres() {
-  const [tab, setTab] = useState<'users' | 'email' | 'templates'>('users')
+  const [tab, setTab] = useState<'users' | 'email' | 'templates' | 'sauvegarde'>('users')
   const [users, setUsers] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<any>(null)
@@ -77,6 +77,10 @@ export default function Parametres() {
   const [tpl, setTpl] = useState<TplState>({ ...TPL_DEFAULTS })
   const [tplSaving, setTplSaving] = useState(false)
   const [tplStatus, setTplStatus] = useState('')
+
+  const [backups, setBackups] = useState<any[]>([])
+  const [backupStatus, setBackupStatus] = useState('')
+  const [restoreConfirm, setRestoreConfirm] = useState(false)
 
   const load = async () => {
     const res = await window.api.getUsers()
@@ -99,6 +103,8 @@ export default function Parametres() {
       }
     })
   }, [])
+
+  useEffect(() => { if (tab === 'sauvegarde') loadBackups() }, [tab])
 
   const saveSmtp = async () => {
     setSmtpSaving(true)
@@ -172,17 +178,45 @@ export default function Parametres() {
     setImportStatus('Import en cours...')
     const importRes = await window.api.importExcel(res.data.filePaths[0])
     if (importRes.success) {
-      setImportStatus(`✓ ${importRes.data.imported} dossiers importés`)
+      const { imported, skipped } = importRes.data
+      setImportStatus(`✓ ${imported} dossiers importés${skipped ? ` (${skipped} doublons ignorés)` : ''}`)
     } else {
       setImportStatus(`Erreur : ${importRes.error}`)
     }
     setTimeout(() => setImportStatus(''), 5000)
   }
 
+  const loadBackups = async () => {
+    const res = await window.api.listBackups()
+    if (res.success) setBackups(res.data || [])
+  }
+
+  const handleCreateBackup = async () => {
+    setBackupStatus('')
+    const res = await window.api.createBackup()
+    if (res.success && res.data) setBackupStatus(`✓ Sauvegarde créée : ${res.data.split('\\').pop()}`)
+    else if (res.success) setBackupStatus('')
+    else setBackupStatus(`Erreur : ${res.error}`)
+    setTimeout(() => setBackupStatus(''), 5000)
+  }
+
+  const handleRestore = async () => {
+    setRestoreConfirm(false)
+    setBackupStatus('')
+    const res = await window.api.restoreBackup()
+    if (res.success && res.data) {
+      setBackupStatus('✓ Restauration effectuée. Relancez l\'application pour valider.')
+    } else if (!res.success) {
+      setBackupStatus(`Erreur : ${res.error}`)
+    }
+    loadBackups()
+  }
+
   const TABS = [
     { id: 'users', label: 'Utilisateurs', icon: <User size={13} /> },
     { id: 'email', label: 'Email / SMTP', icon: <Mail size={13} /> },
     { id: 'templates', label: 'Templates email', icon: <FileText size={13} /> },
+    { id: 'sauvegarde', label: 'Sauvegardes', icon: <Database size={13} /> },
   ] as const
 
   const TEMPLATE_SECTIONS = [
@@ -425,6 +459,68 @@ export default function Parametres() {
         <UpdateChecker />
       </div>
       </>)}
+
+      {/* ── SAUVEGARDES ── */}
+      {tab === 'sauvegarde' && (
+        <div className="space-y-4">
+          {/* Backup manuel */}
+          <div className="card space-y-3">
+            <h2 className="font-medium text-text-primary flex items-center gap-2"><Database size={15} /> Sauvegarde manuelle</h2>
+            <p className="text-sm text-text-muted">Exporte l'intégralité de la base de données (clients, dossiers, paramètres) dans un fichier de votre choix.</p>
+            <div className="flex gap-2">
+              <button className="btn btn-primary" onClick={handleCreateBackup}><Upload size={14} /> Créer une sauvegarde maintenant</button>
+              <button className="btn btn-ghost" onClick={() => window.api.openBackupFolder()}><FolderOpen size={14} /> Ouvrir le dossier de sauvegardes</button>
+            </div>
+            {backupStatus && (
+              <p className={`text-sm ${backupStatus.startsWith('✓') ? 'text-green-400' : 'text-accent-red'}`}>{backupStatus}</p>
+            )}
+          </div>
+
+          {/* Sauvegardes automatiques */}
+          <div className="card space-y-3">
+            <h2 className="font-medium text-text-primary flex items-center gap-2"><Shield size={15} /> Sauvegardes automatiques</h2>
+            <p className="text-sm text-text-muted">
+              Une sauvegarde est créée automatiquement à chaque démarrage de l'application, avant toute opération.
+              Les 10 dernières sont conservées.
+            </p>
+            {backups.length === 0 ? (
+              <p className="text-sm text-text-muted italic">Aucune sauvegarde automatique trouvée.</p>
+            ) : (
+              <div className="space-y-1">
+                {backups.map((b, i) => (
+                  <div key={b.name} className="flex items-center justify-between text-sm py-1.5 border-b border-border last:border-0">
+                    <div className="flex items-center gap-2">
+                      {i === 0 && <span className="text-xs bg-accent-blue/20 text-accent-blue px-1.5 py-0.5 rounded">Dernière</span>}
+                      <span className="text-text-secondary font-mono text-xs">{b.name.replace('crm_', '').replace('.db', '')}</span>
+                    </div>
+                    <span className="text-text-muted text-xs">{(b.size / 1024).toFixed(0)} Ko</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Restauration */}
+          <div className="card space-y-3 border border-accent-orange/30">
+            <h2 className="font-medium text-text-primary flex items-center gap-2"><AlertTriangle size={15} className="text-accent-orange" /> Restaurer une sauvegarde</h2>
+            <p className="text-sm text-text-muted">
+              Remplace la base de données actuelle par un fichier de sauvegarde. Une copie de sécurité est créée automatiquement avant la restauration.
+              <strong className="text-accent-orange"> Cette action est irréversible.</strong>
+            </p>
+            {!restoreConfirm ? (
+              <button className="btn border border-accent-orange/50 text-accent-orange hover:bg-accent-orange/10 text-sm" onClick={() => setRestoreConfirm(true)}>
+                Restaurer depuis un fichier...
+              </button>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-accent-orange">Confirmer la restauration ?</span>
+                <button className="btn btn-danger text-sm" onClick={handleRestore}>Oui, restaurer</button>
+                <button className="btn text-sm" onClick={() => setRestoreConfirm(false)}>Annuler</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">

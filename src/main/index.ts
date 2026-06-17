@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, cpSync } from 'fs'
+import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, cpSync, readdirSync, statSync, unlinkSync } from 'fs'
 import { autoUpdater } from 'electron-updater'
 import type { Database } from 'sql.js'
 
@@ -114,6 +114,7 @@ async function initDatabase(): Promise<void> {
   const SQL = await initSqlJs({ locateFile: () => wasmPath })
   const dbPath = getDbPath()
   if (existsSync(dbPath)) {
+    backupDatabase() // sauvegarde automatique avant toute migration
     db = new SQL.Database(readFileSync(dbPath))
   } else {
     db = new SQL.Database()
@@ -329,9 +330,30 @@ function seedInitialData(): void {
 function generateNumeroDossier(): string {
   const year = new Date().getFullYear()
   const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'AL'
-  const r = queryOne<{ c: number }>(`SELECT COUNT(*) as c FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
-  const count = (r?.c ?? 0) + 1
-  return `${prefix}-${year}-${String(count).padStart(4, '0')}`
+  const r = queryOne<{ max: string | null }>(`SELECT MAX(numeroDossier) as max FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
+  const lastNum = r?.max ? parseInt(r.max.split('-').pop() || '0') : 0
+  return `${prefix}-${year}-${String(lastNum + 1).padStart(4, '0')}`
+}
+
+function getBackupDir(): string {
+  const dir = join(app.getPath('userData'), 'backups')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+function backupDatabase(): void {
+  try {
+    const dbPath = getDbPath()
+    if (!existsSync(dbPath)) return
+    const backupDir = getBackupDir()
+    const ts = new Date().toISOString().replace(/T/, '_').replace(/:/g, 'h').replace(/\..+/, '').replace(/(\d{2})h(\d{2})h/, '$1h$2m')
+    copyFileSync(dbPath, join(backupDir, `crm_${ts}.db`))
+    // Garder seulement les 10 derniers backups
+    const files = readdirSync(backupDir).filter(f => f.startsWith('crm_') && f.endsWith('.db')).sort()
+    if (files.length > 10) {
+      files.slice(0, files.length - 10).forEach(f => { try { unlinkSync(join(backupDir, f)) } catch {} })
+    }
+  } catch (e) { console.error('Auto-backup failed:', e) }
 }
 
 function createWindow(): void {
@@ -647,26 +669,101 @@ function registerIpcHandlers(): void {
       const wb = XLSX.readFile(filePath)
       const ws = wb.Sheets[wb.SheetNames[0]]
       const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+
+      const year = new Date().getFullYear()
+      const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'AL'
+      const r = queryOne<{ max: string | null }>(`SELECT MAX(numeroDossier) as max FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
+      let counter = r?.max ? parseInt(r.max.split('-').pop() || '0') + 1 : 1
+
       let imported = 0
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i]
-        if (!row[1]) continue
-        const parts = String(row[1]).trim().split(' ')
-        const nom = parts[0] || 'Inconnu'
-        const prenom = parts.slice(1).join(' ')
-        const existing = queryOne<{ id: number }>('SELECT id FROM Client WHERE nom=? AND prenom=?', [nom, prenom])
-        let clientId: number
-        if (!existing) {
-          run('INSERT INTO Client (nom,prenom,type,updatedAt) VALUES (?,?,?,datetime("now"))', [nom, prenom, row[2]==='PRO'?'PROFESSIONNEL':'PARTICULIER'])
-          clientId = lastInsertId()
-        } else { clientId = existing.id }
-        const numero = generateNumeroDossier()
-        run(`INSERT INTO Dossier (numeroDossier,clientId,dateDemande,typeFinancement,statut,marqueNom,modeleNom,caracteristiques,valeurVehicule,loyerMensuel,repriseOuiNon,estChaud,commandeEffectuee,montantCommission,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime("now"))`,
-          [numero,clientId,row[0]?new Date(row[0]).toISOString():new Date().toISOString(),row[3]==='CASH'?'CASH':row[3]==='LOA'?'LOA':'LLD',row[16]?'GAGNE':'OUVERT',row[5]||null,row[6]||null,row[7]||null,row[12]?parseFloat(String(row[12]).replace(/[^0-9.]/g,'')):null,row[8]?parseFloat(String(row[8]).replace(/[^0-9.]/g,'')):null,row[10]==='O'||row[10]==='OUI'?1:0,row[14]==='O'||row[14]==='OUI'?1:0,row[16]?1:0,row[21]?parseFloat(String(row[21]).replace(/[^0-9.]/g,'')):null])
-        imported++
+      let skipped = 0
+
+      db.run('BEGIN TRANSACTION')
+      try {
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i]
+          if (!row[1]) continue
+          const parts = String(row[1]).trim().split(' ')
+          const nom = parts[0] || 'Inconnu'
+          const prenom = parts.slice(1).join(' ')
+
+          let existing = queryOne<{ id: number }>('SELECT id FROM Client WHERE nom=? AND prenom=?', [nom, prenom])
+          let clientId: number
+          if (!existing) {
+            db.run('INSERT INTO Client (nom,prenom,type,updatedAt) VALUES (?,?,?,datetime("now"))', [nom, prenom, row[2]==='PRO'?'PROFESSIONNEL':'PARTICULIER'])
+            clientId = queryOne<{ id: number }>('SELECT last_insert_rowid() as id')?.id ?? 0
+          } else { clientId = existing.id }
+
+          // Ignorer les doublons (même client + même date)
+          const dosDate = row[0] ? new Date(row[0]).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+          if (queryOne('SELECT id FROM Dossier WHERE clientId=? AND DATE(dateDemande)=?', [clientId, dosDate])) { skipped++; continue }
+
+          const numero = `${prefix}-${year}-${String(counter).padStart(4, '0')}`
+          counter++
+          db.run(
+            `INSERT INTO Dossier (numeroDossier,clientId,dateDemande,typeFinancement,statut,marqueNom,modeleNom,caracteristiques,valeurVehicule,loyerMensuel,repriseOuiNon,estChaud,commandeEffectuee,montantCommission,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime("now"))`,
+            [numero,clientId,row[0]?new Date(row[0]).toISOString():new Date().toISOString(),row[3]==='CASH'?'CASH':row[3]==='LOA'?'LOA':'LLD',row[16]?'GAGNE':'OUVERT',row[5]||null,row[6]||null,row[7]||null,row[12]?parseFloat(String(row[12]).replace(/[^0-9.]/g,'')):null,row[8]?parseFloat(String(row[8]).replace(/[^0-9.]/g,'')):null,row[10]==='O'||row[10]==='OUI'?1:0,row[14]==='O'||row[14]==='OUI'?1:0,row[16]?1:0,row[21]?parseFloat(String(row[21]).replace(/[^0-9.]/g,'')):null]
+          )
+          imported++
+        }
+        db.run('COMMIT')
+        saveDb()
+      } catch (e) {
+        try { db.run('ROLLBACK') } catch {}
+        throw e
       }
-      return ok({ imported })
+
+      return ok({ imported, skipped })
     } catch (e) { return err(e) }
+  })
+
+  // SAUVEGARDES
+  ipcMain.handle('backup:create', async () => {
+    try {
+      const r = await dialog.showSaveDialog(mainWindow, {
+        title: 'Sauvegarder la base de données',
+        defaultPath: `autolead_sauvegarde_${new Date().toISOString().slice(0, 10)}.db`,
+        filters: [{ name: 'Base de données SQLite', extensions: ['db'] }]
+      })
+      if (r.canceled || !r.filePath) return ok(null)
+      writeFileSync(r.filePath, Buffer.from(db.export()))
+      return ok(r.filePath)
+    } catch (e) { return err(e) }
+  })
+  ipcMain.handle('backup:restore', async () => {
+    try {
+      const r = await dialog.showOpenDialog(mainWindow, {
+        title: 'Restaurer une sauvegarde',
+        properties: ['openFile'],
+        filters: [{ name: 'Base de données SQLite', extensions: ['db'] }]
+      })
+      if (r.canceled || !r.filePaths[0]) return ok(null)
+      // Sauvegarde de sécurité avant restauration
+      writeFileSync(getDbPath(), Buffer.from(db.export()))
+      backupDatabase()
+      // Charger le fichier de backup
+      const initSqlJs = require('sql.js')
+      let wasmPath = join(app.getAppPath(), 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm')
+      if (!existsSync(wasmPath)) wasmPath = join(__dirname, '..', '..', 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm')
+      const SQL = await initSqlJs({ locateFile: () => wasmPath })
+      db = new SQL.Database(readFileSync(r.filePaths[0]))
+      saveDb()
+      return ok(r.filePaths[0])
+    } catch (e) { return err(e) }
+  })
+  ipcMain.handle('backup:list', () => {
+    try {
+      const backupDir = getBackupDir()
+      const files = readdirSync(backupDir)
+        .filter(f => f.startsWith('crm_') && f.endsWith('.db'))
+        .sort().reverse().slice(0, 10)
+        .map(f => ({ name: f, size: statSync(join(backupDir, f)).size, mtime: statSync(join(backupDir, f)).mtime.toISOString() }))
+      return ok(files)
+    } catch (e) { return err(e) }
+  })
+  ipcMain.handle('backup:openFolder', () => {
+    shell.openPath(getBackupDir())
+    return ok()
   })
 }
 
