@@ -1,6 +1,6 @@
 {
   "name": "autolead-crm",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "CRM pour apporteur d'affaires automobile & moto",
   "main": "out/main/index.js",
   "author": "AutoLead",

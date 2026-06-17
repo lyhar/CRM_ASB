@@ -101,6 +101,8 @@ const api = {
     ipcRenderer.on('update:downloaded', () => cb()),
   onUpdateError: (cb: (msg: string) => void) =>
     ipcRenderer.on('update:error', (_, msg) => cb(msg)),
+  onAppUpdated: (cb: (info: { from: string; to: string }) => void) =>
+    ipcRenderer.once('app:updated', (_, info) => cb(info)),
   removeUpdateListeners: () => {
     ipcRenderer.removeAllListeners('update:available')
     ipcRenderer.removeAllListeners('update:not-available')

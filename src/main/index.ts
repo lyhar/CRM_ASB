@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, session } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, cpSync, readdirSync, statSync, unlinkSync } from 'fs'
 import { autoUpdater } from 'electron-updater'
@@ -780,12 +780,41 @@ function registerIpcHandlers(): void {
   })
 }
 
+// Détecte un changement de version et nettoie les caches si nécessaire
+async function handleVersionChange(): Promise<{ updated: boolean; from: string | null }> {
+  const currentVersion = app.getVersion()
+  const versionFile = join(app.getPath('userData'), '.version')
+  const storedVersion = existsSync(versionFile) ? readFileSync(versionFile, 'utf-8').trim() : null
+
+  if (storedVersion && storedVersion !== currentVersion) {
+    // Nouvelle version détectée — vider tous les caches Chromium
+    try {
+      await session.defaultSession.clearCache()
+      await session.defaultSession.clearStorageData({
+        storages: ['appcache', 'shadercache', 'serviceworkers', 'cachestorage']
+      })
+    } catch (e) { console.error('Cache clear failed:', e) }
+    writeFileSync(versionFile, currentVersion, 'utf-8')
+    return { updated: true, from: storedVersion }
+  }
+
+  writeFileSync(versionFile, currentVersion, 'utf-8')
+  return { updated: false, from: storedVersion }
+}
+
 app.whenReady().then(async () => {
   migrateUserData()
+  const versionInfo = await handleVersionChange()
   await initDatabase()
   registerIpcHandlers()
   setupAutoUpdater()
   createWindow()
+  // Informer le renderer si une MAJ vient d'être appliquée
+  if (versionInfo.updated) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.send('app:updated', { from: versionInfo.from, to: app.getVersion() })
+    })
+  }
   // Vérifier les mises à jour 5 secondes après le démarrage (en production uniquement)
   if (app.isPackaged) {
     setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000)
