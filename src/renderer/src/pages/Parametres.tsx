@@ -81,6 +81,7 @@ export default function Parametres() {
   const [backups, setBackups] = useState<any[]>([])
   const [backupStatus, setBackupStatus] = useState('')
   const [restoreConfirm, setRestoreConfirm] = useState(false)
+  const [appInfo, setAppInfo] = useState<any>(null)
 
   const load = async () => {
     const res = await window.api.getUsers()
@@ -105,6 +106,7 @@ export default function Parametres() {
   }, [])
 
   useEffect(() => { if (tab === 'sauvegarde') loadBackups() }, [tab])
+  useEffect(() => { window.api.getAppInfo().then(setAppInfo) }, [])
 
   const saveSmtp = async () => {
     setSmtpSaving(true)
@@ -450,12 +452,64 @@ export default function Parametres() {
       </div>
 
       <div className="card">
-        <h2 className="font-medium text-text-primary mb-3">À propos</h2>
-        <div className="space-y-2 text-sm mb-4">
-          <div className="flex justify-between"><span className="text-text-muted">Version</span><span className="text-text-secondary font-mono">1.0.6</span></div>
-          <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">AutoLead CRM</span></div>
-          <div className="flex justify-between"><span className="text-text-muted">Base de données</span><span className="text-text-secondary">SQLite (locale)</span></div>
-        </div>
+        <h2 className="font-medium text-text-primary mb-4">À propos</h2>
+        {appInfo ? (
+          <div className="space-y-4 text-sm mb-4">
+            {/* Identité app */}
+            <div className="space-y-2">
+              {[
+                ['Application', 'AutoLead CRM'],
+                ['Version', appInfo.version],
+                ['Mode', appInfo.packaged ? 'Production (installé)' : 'Développement'],
+              ].map(([l, v]) => (
+                <div key={l} className="flex justify-between">
+                  <span className="text-text-muted">{l}</span>
+                  <span className="text-text-secondary font-mono text-xs">{v}</span>
+                </div>
+              ))}
+            </div>
+            {/* Chemins */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Emplacements</p>
+              {[
+                ["Dossier d'installation", appInfo.appPath],
+                ['Données utilisateur', appInfo.userData],
+                ['Base de données', appInfo.dbPath],
+                ['Documents importés', appInfo.documentsDir],
+                ['Sauvegardes auto', appInfo.backupsDir],
+              ].map(([l, v]) => (
+                <div key={l} className="space-y-0.5">
+                  <div className="text-xs text-text-muted">{l}</div>
+                  <div
+                    className="text-xs text-text-secondary font-mono bg-bg-primary rounded px-2 py-1 break-all cursor-pointer hover:text-accent-blue transition-colors"
+                    title="Cliquer pour ouvrir dans l'Explorateur"
+                    onClick={() => window.api.openExternal('file:///' + v.replace(/\\/g, '/'))}>
+                    {v}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Environnement technique */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Environnement</p>
+              {[
+                ['Electron', appInfo.electron],
+                ['Node.js', appInfo.node],
+                ['Plateforme', `${appInfo.platform} ${appInfo.arch}`],
+                ['Base de données', 'SQLite via sql.js (locale, chiffrée en mémoire)'],
+              ].map(([l, v]) => (
+                <div key={l} className="flex justify-between gap-4">
+                  <span className="text-text-muted flex-shrink-0">{l}</span>
+                  <span className="text-text-secondary font-mono text-xs text-right">{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 text-sm mb-4">
+            <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">AutoLead CRM</span></div>
+          </div>
+        )}
         <UpdateChecker />
       </div>
       </>)}

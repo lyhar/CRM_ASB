@@ -90,6 +90,7 @@ const api = {
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
   getAppVersion: () => ipcRenderer.invoke('app:version'),
+  getAppInfo: () => ipcRenderer.invoke('app:info'),
   onUpdateAvailable: (cb: (info: { version: string }) => void) =>
     ipcRenderer.on('update:available', (_, info) => cb(info)),
   onUpdateNotAvailable: (cb: () => void) =>

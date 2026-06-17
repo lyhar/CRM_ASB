@@ -48,6 +48,19 @@ function setupAutoUpdater(): void {
     autoUpdater.quitAndInstall()
   })
   ipcMain.handle('app:version', () => app.getVersion())
+  ipcMain.handle('app:info', () => ({
+    version: app.getVersion(),
+    appPath: app.getAppPath(),
+    userData: app.getPath('userData'),
+    dbPath: getDbPath(),
+    documentsDir: join(app.getPath('userData'), 'documents'),
+    backupsDir: join(app.getPath('userData'), 'backups'),
+    electron: process.versions.electron,
+    node: process.versions.node,
+    platform: process.platform,
+    arch: process.arch,
+    packaged: app.isPackaged,
+  }))
 }
 
 // Migration : déplacer les données de l'ancien dossier asb-crm vers autolead-crm
