@@ -134,19 +134,68 @@ function lastInsertId(): number {
   return r[0]?.id ?? 0
 }
 
+function resolveWasmPath(): string {
+  const candidates = [
+    join(process.resourcesPath, 'sql-wasm.wasm'),
+    join(app.getAppPath(), 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm'),
+    join(__dirname, '..', '..', 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm'),
+  ]
+  for (const p of candidates) {
+    try { if (existsSync(p)) return p } catch {}
+  }
+  return candidates[0]
+}
+
+function isValidSqliteDb(path: string): boolean {
+  try {
+    const buf = readFileSync(path)
+    return buf.slice(0, 15).toString('utf8') === 'SQLite format 3'
+  } catch { return false }
+}
+
+function tryRestoreLatestBackup(): boolean {
+  try {
+    const backupDir = getBackupDir()
+    const files = readdirSync(backupDir)
+      .filter(f => f.startsWith('crm_') && f.endsWith('.db'))
+      .sort().reverse()
+    for (const f of files) {
+      const src = join(backupDir, f)
+      if (isValidSqliteDb(src)) {
+        copyFileSync(src, getDbPath())
+        return true
+      }
+    }
+  } catch {}
+  return false
+}
+
 async function initDatabase(): Promise<void> {
   const initSqlJs = require('sql.js')
-  let wasmPath = join(app.getAppPath(), 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm')
-  if (!existsSync(wasmPath)) {
-    wasmPath = join(__dirname, '..', '..', 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm')
-  }
+  const wasmPath = resolveWasmPath()
   const SQL = await initSqlJs({ locateFile: () => wasmPath })
   const dbPath = getDbPath()
   if (existsSync(dbPath)) {
-    backupDatabase() // sauvegarde automatique avant toute migration
-    db = new SQL.Database(readFileSync(dbPath))
+    if (isValidSqliteDb(dbPath)) {
+      backupDatabase()
+      db = new SQL.Database(readFileSync(dbPath))
+    } else {
+      // DB corrompue — tenter restauration depuis le backup le plus récent
+      const restored = tryRestoreLatestBackup()
+      if (restored && isValidSqliteDb(dbPath)) {
+        db = new SQL.Database(readFileSync(dbPath))
+      } else {
+        // Aucun backup valide — repartir de zéro
+        db = new SQL.Database()
+      }
+    }
   } else {
-    db = new SQL.Database()
+    // Pas de DB — vérifier si un backup existe
+    if (tryRestoreLatestBackup()) {
+      db = new SQL.Database(readFileSync(dbPath))
+    } else {
+      db = new SQL.Database()
+    }
   }
   createTables()
   migrateSchema()
@@ -899,22 +948,30 @@ async function handleVersionChange(): Promise<{ updated: boolean; from: string |
 }
 
 app.whenReady().then(async () => {
-  migrateToNewDataDir()
-  const versionInfo = await handleVersionChange()
-  await initDatabase()
-  registerIpcHandlers()
-  setupAutoUpdater()
-  createWindow()
-  // Informer le renderer si une MAJ vient d'être appliquée
-  if (versionInfo.updated) {
-    mainWindow.webContents.once('did-finish-load', () => {
-      mainWindow.webContents.send('app:updated', { from: versionInfo.from, to: app.getVersion() })
+  try {
+    migrateToNewDataDir()
+    const versionInfo = await handleVersionChange()
+    await initDatabase()
+    registerIpcHandlers()
+    setupAutoUpdater()
+    createWindow()
+    if (versionInfo.updated) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.send('app:updated', { from: versionInfo.from, to: app.getVersion() })
+      })
+    }
+    if (app.isPackaged) {
+      setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000)
+    }
+    app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
+  } catch (e) {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'Erreur au démarrage',
+      message: `AutoLead CRM n'a pas pu démarrer.\n\n${String(e)}\n\nVeuillez contacter le support.`,
+      buttons: ['Quitter']
     })
+    app.quit()
   }
-  // Vérifier les mises à jour 5 secondes après le démarrage (en production uniquement)
-  if (app.isPackaged) {
-    setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000)
-  }
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
