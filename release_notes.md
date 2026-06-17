@@ -112,6 +112,20 @@
 
 ---
 
+## v1.3.7 — 17 juin 2026
+**Icône d'application cuivre**
+
+### Améliorations
+- Nouvelle icône d'application anthracite/cuivre cohérente avec la refonte graphique.
+- Icône `.ico` multi-tailles régénérée pour l'exe, l'installeur et la barre des tâches Windows.
+- Script de génération d'icône remplacé par un rendu haute résolution puis réduction propre pour les petites tailles.
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.3.7
+- Fichier : `CRM Trajectoire Setup 1.3.7.exe`
+
+---
+
 ## v1.3.6 — 17 juin 2026
 **Droits d'écriture et dossier de données**
 
