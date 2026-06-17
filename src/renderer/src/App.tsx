@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+﻿import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import Layout from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
@@ -24,10 +24,10 @@ function UpdatedBanner() {
   if (!info) return null
 
   return (
-    <div className="fixed top-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-bg-secondary border border-accent-blue/40 rounded-lg px-4 py-2.5 shadow-xl">
-      <CheckCircle size={15} className="text-accent-blue flex-shrink-0" />
+    <div className="fixed top-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-bg-secondary border border-accent/40 rounded-lg px-4 py-2.5 shadow-xl">
+      <CheckCircle size={15} className="text-accent flex-shrink-0" />
       <span className="text-sm text-text-primary">
-        Trajectoire mis à jour <span className="font-mono text-text-muted">v{info.from}</span> → <span className="font-mono text-accent-blue">v{info.to}</span>
+        CRM Trajectoire mis à jour <span className="font-mono text-text-muted">v{info.from}</span> → <span className="font-mono text-accent">v{info.to}</span>
       </span>
       <button onClick={() => setInfo(null)} className="text-text-muted hover:text-text-primary ml-1">
         <X size={14} />

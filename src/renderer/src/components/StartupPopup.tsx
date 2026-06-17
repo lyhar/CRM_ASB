@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Cake, Flame, Clock, Calendar, Star, ChevronRight } from 'lucide-react'
 import { formatDate } from '../lib/utils'
@@ -37,7 +37,7 @@ export default function StartupPopup() {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-end justify-end z-50 p-4">
-      <div className="bg-bg-card border border-border rounded-lg w-96 shadow-xl" style={{ maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="bg-bg-card border border-border rounded-lg w-full max-w-sm shadow-xl" style={{ maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <div>
@@ -52,7 +52,7 @@ export default function StartupPopup() {
           {/* Anniversaires */}
           {taches.anniversaires?.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-accent-yellow mb-2 uppercase tracking-wide">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-color-warning mb-2 uppercase tracking-wide">
                 <Cake size={12} /> Anniversaires du jour
               </div>
               <div className="space-y-1">
@@ -60,7 +60,7 @@ export default function StartupPopup() {
                   <div key={c.id} className="flex items-center justify-between p-2 rounded bg-bg-secondary">
                     <span className="text-sm text-text-primary">{c.prenom} {c.nom}</span>
                     <button onClick={() => { navigate(`/clients/${c.id}`); setVisible(false) }}
-                      className="text-xs text-accent-blue hover:underline flex items-center gap-0.5">
+                      className="text-xs text-accent hover:underline flex items-center gap-0.5">
                       Voir <ChevronRight size={11} />
                     </button>
                   </div>
@@ -72,7 +72,7 @@ export default function StartupPopup() {
           {/* Dossiers chauds */}
           {taches.dossiersChauds?.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-accent-orange mb-2 uppercase tracking-wide">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-color-warning mb-2 uppercase tracking-wide">
                 <Flame size={12} /> Affaires chaudes
               </div>
               <div className="space-y-1">
@@ -83,7 +83,7 @@ export default function StartupPopup() {
                       <div className="text-xs text-text-muted">{d.numeroDossier}</div>
                     </div>
                     <button onClick={() => { navigate(`/dossiers/${d.id}`); setVisible(false) }}
-                      className="text-xs text-accent-blue hover:underline flex items-center gap-0.5">
+                      className="text-xs text-accent hover:underline flex items-center gap-0.5">
                       Ouvrir <ChevronRight size={11} />
                     </button>
                   </div>
@@ -95,7 +95,7 @@ export default function StartupPopup() {
           {/* Commissions en retard */}
           {taches.commissionsEnRetard?.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-accent-red mb-2 uppercase tracking-wide">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-color-danger mb-2 uppercase tracking-wide">
                 <Clock size={12} /> Factures en attente (+30j)
               </div>
               <div className="space-y-1">
@@ -106,7 +106,7 @@ export default function StartupPopup() {
                       <div className="text-xs text-text-muted">Facturé le {formatDate(d.dateFacturation)}</div>
                     </div>
                     <button onClick={() => { navigate(`/dossiers/${d.id}`); setVisible(false) }}
-                      className="text-xs text-accent-blue hover:underline flex items-center gap-0.5">
+                      className="text-xs text-accent hover:underline flex items-center gap-0.5">
                       Ouvrir <ChevronRight size={11} />
                     </button>
                   </div>
@@ -118,7 +118,7 @@ export default function StartupPopup() {
           {/* Fins de contrat proches */}
           {taches.finContratsProches?.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-accent-blue mb-2 uppercase tracking-wide">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-accent mb-2 uppercase tracking-wide">
                 <Calendar size={12} /> Fins de contrat (12 mois)
               </div>
               <div className="space-y-1">
@@ -131,7 +131,7 @@ export default function StartupPopup() {
                       </div>
                     </div>
                     <button onClick={() => { navigate(`/dossiers/${d.id}`); setVisible(false) }}
-                      className="text-xs text-accent-blue hover:underline flex items-center gap-0.5">
+                      className="text-xs text-accent hover:underline flex items-center gap-0.5">
                       Ouvrir <ChevronRight size={11} />
                     </button>
                   </div>
@@ -143,7 +143,7 @@ export default function StartupPopup() {
           {/* Suivi 1 an */}
           {taches.suiviAnnuel?.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-accent-green mb-2 uppercase tracking-wide">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-color-success mb-2 uppercase tracking-wide">
                 <Star size={12} /> Suivi 1 an (livraison il y a ~1 an)
               </div>
               <div className="space-y-1">
@@ -154,7 +154,7 @@ export default function StartupPopup() {
                       <div className="text-xs text-text-muted">{[d.marqueNom, d.modeleNom].filter(Boolean).join(' ')}</div>
                     </div>
                     <button onClick={() => { navigate(`/dossiers/${d.id}`); setVisible(false) }}
-                      className="text-xs text-accent-blue hover:underline flex items-center gap-0.5">
+                      className="text-xs text-accent hover:underline flex items-center gap-0.5">
                       Ouvrir <ChevronRight size={11} />
                     </button>
                   </div>

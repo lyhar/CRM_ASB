@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { X, Send, Copy, Check, Mail } from 'lucide-react'
 import RichTextEditor from './RichTextEditor'
 import { wrapEmailHtml } from '../lib/emailTemplates'
@@ -68,7 +68,7 @@ export default function EmailComposer({ to, subject: initialSubject, html: initi
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Mail size={16} className="text-accent-blue" />
+            <Mail size={16} className="text-accent" />
             <h2 className="font-semibold text-text-primary">Composer un email</h2>
           </div>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X size={18} /></button>
@@ -90,7 +90,7 @@ export default function EmailComposer({ to, subject: initialSubject, html: initi
         <div className="flex border-b border-border flex-shrink-0">
           {(['edit', 'preview'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm transition-colors ${tab === t ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-text-muted hover:text-text-primary'}`}>
+              className={`px-4 py-2 text-sm transition-colors ${tab === t ? 'text-accent border-b-2 border-accent' : 'text-text-muted hover:text-text-primary'}`}>
               {t === 'edit' ? 'Rédiger' : 'Aperçu rendu'}
             </button>
           ))}
@@ -124,7 +124,7 @@ export default function EmailComposer({ to, subject: initialSubject, html: initi
         <div className="p-4 border-t border-border flex items-center justify-between gap-3 flex-shrink-0">
           <div className="flex items-center gap-2">
             <button className="btn btn-ghost text-sm" onClick={handleCopy}>
-              {copied ? <Check size={14} className="text-accent-green" /> : <Copy size={14} />}
+              {copied ? <Check size={14} className="text-color-success" /> : <Copy size={14} />}
               {copied ? 'Copié !' : 'Copier'}
             </button>
             <button className="btn btn-ghost text-sm" onClick={handleMailto}>
@@ -133,7 +133,7 @@ export default function EmailComposer({ to, subject: initialSubject, html: initi
           </div>
           <div className="flex items-center gap-3">
             {status && (
-              <span className={`text-sm ${status.type === 'success' ? 'text-accent-green' : 'text-accent-red'}`}>
+              <span className={`text-sm ${status.type === 'success' ? 'text-color-success' : 'text-color-danger'}`}>
                 {status.msg}
               </span>
             )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 
 interface Props {
@@ -134,8 +134,8 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
   const sections = ['Client & Véhicule', 'Financement', 'Commande', 'Commission']
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-bg-card border border-border rounded-lg w-full max-w-3xl max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-8">
+      <div className="bg-bg-card border border-border rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-border flex-shrink-0">
           <h2 className="font-semibold text-text-primary">{dossier ? `Modifier ${dossier.numeroDossier}` : 'Nouveau dossier'}</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X size={18} /></button>
@@ -145,18 +145,18 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
         <div className="flex gap-1 px-5 pt-4 border-b border-border flex-shrink-0">
           {sections.map((s, i) => (
             <button key={i} onClick={() => setSection(i)}
-              className={`px-3 py-1.5 text-sm rounded-t transition-colors -mb-px border-b-2 ${section === i ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-secondary hover:text-text-primary'}`}>
+              className={`px-3 py-1.5 text-sm rounded-t transition-colors -mb-px border-b-2 ${section === i ? 'border-accent text-accent' : 'border-transparent text-text-secondary hover:text-text-primary'}`}>
               {s}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {error && <div className="px-3 py-2 bg-accent-red/10 border border-accent-red/20 rounded text-accent-red text-sm">{error}</div>}
+          {error && <div className="px-3 py-2 bg-color-danger/10 border border-color-danger/20 rounded text-color-danger text-sm">{error}</div>}
 
           {/* Section 0: Client & Véhicule */}
           {section === 0 && <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="form-label">Client *</label>
                 <div className="relative">
@@ -180,7 +180,7 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
                 <label className="form-label">Statut</label>
                 <select className="form-input" value={form.statut} onChange={e => set('statut', e.target.value)}>
@@ -200,13 +200,13 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
               </div>
               <div className="flex items-end pb-2 gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.estChaud} onChange={e => set('estChaud', e.target.checked)} className="accent-accent-orange" />
+                  <input type="checkbox" checked={form.estChaud} onChange={e => set('estChaud', e.target.checked)} className="accent-accent" />
                   <span className="text-sm text-text-secondary">🔥 Chaud</span>
                 </label>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
                 <label className="form-label">Type de véhicule</label>
                 <select className="form-input" value={form.typeVehicule} onChange={e => set('typeVehicule', e.target.value)}>
@@ -234,7 +234,7 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
                 <label className="form-label">Neuf ou occasion</label>
                 <select className="form-input" value={form.neufOuOccasion} onChange={e => set('neufOuOccasion', e.target.value)}>
@@ -269,11 +269,11 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
             {/* Reprise */}
             <div className="border border-border rounded p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="reprise" checked={form.repriseOuiNon} onChange={e => set('repriseOuiNon', e.target.checked)} className="accent-accent-blue" />
+                <input type="checkbox" id="reprise" checked={form.repriseOuiNon} onChange={e => set('repriseOuiNon', e.target.checked)} className="accent-accent" />
                 <label htmlFor="reprise" className="text-sm font-medium text-text-primary cursor-pointer">Reprise de véhicule</label>
               </div>
-              {form.repriseOuiNon && (
-                <div className="grid grid-cols-4 gap-3">
+              {!!form.repriseOuiNon && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <label className="form-label">Marque reprise</label>
                     <input className="form-input" value={form.repriseMarque} onChange={e => set('repriseMarque', e.target.value)} />
@@ -304,7 +304,7 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
           {/* Section 1: Financement */}
           {section === 1 && <>
             {(form.typeFinancement === 'LLD' || form.typeFinancement === 'LOA') && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <label className="form-label">Loyer mensuel (€)</label>
                   <input type="number" className="form-input" value={form.loyerMensuel} onChange={e => set('loyerMensuel', e.target.value)} placeholder="0" />
@@ -331,7 +331,7 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
 
           {/* Section 2: Commande */}
           {section === 2 && <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="relative">
                 <label className="form-label">Concessionnaire</label>
                 <input
@@ -370,7 +370,7 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
                 <input className="form-input" value={form.nomVendeur} onChange={e => set('nomVendeur', e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="form-label">Lieu de prise de commande</label>
                 <input className="form-input" value={form.lieuPriseCommande} onChange={e => set('lieuPriseCommande', e.target.value)} />
@@ -381,13 +381,13 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
               </div>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.commandeEffectuee} onChange={e => set('commandeEffectuee', e.target.checked)} className="accent-accent-blue" />
+              <input type="checkbox" checked={form.commandeEffectuee} onChange={e => set('commandeEffectuee', e.target.checked)} className="accent-accent" />
               <span className="text-sm text-text-secondary">Commande effectuée</span>
             </label>
 
             <div className="border-t border-border pt-4 space-y-3">
               <h3 className="text-sm font-medium text-text-primary">Livraison</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div>
                   <label className="form-label">Date prévue</label>
                   <input type="date" className="form-input" value={form.dateLivraisonPrevue} onChange={e => set('dateLivraisonPrevue', e.target.value)} />
@@ -418,7 +418,7 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
 
           {/* Section 3: Commission */}
           {section === 3 && <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="form-label">Montant commission (€ TTC)</label>
                 <input type="number" className="form-input" value={form.montantCommission} onChange={e => set('montantCommission', e.target.value)} placeholder="0" />
@@ -433,7 +433,7 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="form-label">Date facturation</label>
                 <input type="date" className="form-input" value={form.dateFacturation} onChange={e => set('dateFacturation', e.target.value)} />
@@ -456,12 +456,9 @@ export default function DossierForm({ dossier, prefilledClient, onClose }: Props
           </div>
           <div className="flex gap-2">
             <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
-            {section < sections.length - 1
-              ? <button className="btn btn-primary" onClick={() => setSection(s => s + 1)}>Suivant →</button>
-              : <button className="btn btn-primary" onClick={submit} disabled={saving}>
-                  {saving ? 'Enregistrement...' : (dossier ? 'Enregistrer' : 'Créer le dossier')}
-                </button>
-            }
+            <button className="btn btn-primary" onClick={submit} disabled={saving}>
+              {saving ? 'Enregistrement...' : (dossier ? 'Enregistrer' : 'Créer le dossier')}
+            </button>
           </div>
         </div>
       </div>

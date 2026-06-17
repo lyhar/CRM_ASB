@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { X, FileSpreadsheet, Loader2, Check, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react'
+﻿import { useState, useEffect } from 'react'
+import { X, FileSpreadsheet, Loader2, AlertTriangle, ChevronRight } from 'lucide-react'
 
 interface Props {
   filePath: string
@@ -9,7 +9,7 @@ interface Props {
 }
 
 type Mapping = Record<string, number>
-type Step = 'mapping' | 'analyzing' | 'review' | 'importing'
+type Step = 'mapping' | 'analyzing' | 'importing'
 
 // -2 = valeur spéciale : extraire prénom depuis la colonne Nom (split espace)
 const SPLIT_FROM_NOM = -2
@@ -53,11 +53,12 @@ function autoDetect(headers: string[]): Mapping {
   const prixSeul = h.findIndex(x =>
     x === 'PRIX' || (x.includes('PRIX') && !x.includes('LOYER') && !x.includes('MODELE') && !x.includes('REPRISE'))
   )
-  // Détecter si une colonne contient nom+prénom combinés (ex: "NOM PRENOM", "CLIENT")
   const nomIdx = find('NOM')
   const prenomIdx = find('PRENOM', 'PRÉNOM')
-  // Si pas de colonne prénom séparée mais une colonne nom existe → proposer split
-  const prenomMapping = prenomIdx >= 0 ? prenomIdx : (nomIdx >= 0 ? SPLIT_FROM_NOM : -1)
+  // Si la colonne "prénom" est la même que "nom" (ex: en-tête "NOM PRENOM") ou absente → split
+  const prenomMapping = (prenomIdx >= 0 && prenomIdx !== nomIdx)
+    ? prenomIdx
+    : (nomIdx >= 0 ? SPLIT_FROM_NOM : -1)
   return {
     nom:                nomIdx,
     prenom:             prenomMapping,
@@ -88,7 +89,7 @@ function autoDetect(headers: string[]): Mapping {
 
 function splitNomPrenom(raw: string): { nom: string; prenom: string } {
   const i = raw.indexOf(' ')
-  return i > 0 ? { nom: raw.substring(0, i), prenom: raw.substring(i + 1) } : { nom: raw, prenom: '' }
+  return i > 0 ? { nom: raw.substring(i + 1), prenom: raw.substring(0, i) } : { nom: raw, prenom: '' }
 }
 
 function previewValue(row: string[], mapping: Mapping, fieldKey: string): string {
@@ -111,9 +112,7 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
   const [totalRows, setTotalRows] = useState(0)
   const [mapping, setMapping] = useState<Mapping>({})
   const [step, setStep] = useState<Step>('mapping')
-  const [duplicates, setDuplicates] = useState<any[]>([])
   const [toImport, setToImport] = useState(0)
-  const [selectedDuplicates, setSelectedDuplicates] = useState<Set<number>>(new Set())
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -139,16 +138,8 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
     const res = await window.api.importExcelAnalyze(filePath, mapping)
     if (!res.success) { setError(res.error || 'Erreur analyse'); setStep('mapping'); return }
     const { duplicates: dups, toImport: count } = res.data
-    setDuplicates(dups)
-    setToImport(count)
-    // Pré-sélectionner tous les doublons (l'utilisateur peut décocher)
-    setSelectedDuplicates(new Set(dups.map((d: any) => d.rowIndex)))
-    if (dups.length > 0) {
-      setStep('review')
-    } else {
-      // Pas de doublons → import direct
-      await runImport([])
-    }
+    setToImport(count + dups.length)
+    await runImport(dups.map((d: any) => d.rowIndex))
   }
 
   const runImport = async (forceRows: number[]) => {
@@ -173,97 +164,16 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
     { label: '← Extraire depuis "Nom" (split espace)', value: SPLIT_FROM_NOM },
     ...headers.map((h, i) => ({ label: `col.${i + 1} — ${h || '(vide)'}`, value: i }))
   ]
-  const visibleFields = FIELDS.filter(f => f.key !== 'prenom' || !isSplit)
-
-  // ── ÉTAPE REVIEW DOUBLONS ──
-  if (step === 'review') {
-    const allSelected = selectedDuplicates.size === duplicates.length
-    const toggle = (idx: number) => setSelectedDuplicates(prev => {
-      const next = new Set(prev)
-      next.has(idx) ? next.delete(idx) : next.add(idx)
-      return next
-    })
-    return (
-      <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-        <div className="bg-bg-card border border-border rounded-lg flex flex-col" style={{ width: 780, maxHeight: '88vh' }}>
-          <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-accent-orange" />
-              <div>
-                <h2 className="font-semibold text-text-primary text-sm">Doublons détectés — {duplicates.length} ligne(s)</h2>
-                <p className="text-xs text-text-muted">{toImport} nouvelles lignes à importer · {duplicates.length} déjà présentes</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X size={18} /></button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4">
-            <p className="text-sm text-text-muted mb-3">
-              Cochez les doublons à importer quand même (décochés = ignorés) :
-            </p>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-bg-secondary">
-                  <th className="px-3 py-2 border border-border text-left w-8">
-                    <input type="checkbox" checked={allSelected}
-                      onChange={() => setSelectedDuplicates(allSelected ? new Set() : new Set(duplicates.map((d: any) => d.rowIndex)))} />
-                  </th>
-                  <th className="px-3 py-2 border border-border text-left text-text-muted font-medium">Ligne</th>
-                  <th className="px-3 py-2 border border-border text-left text-text-muted font-medium">Nom</th>
-                  <th className="px-3 py-2 border border-border text-left text-text-muted font-medium">Prénom</th>
-                  <th className="px-3 py-2 border border-border text-left text-text-muted font-medium">Date demande</th>
-                  <th className="px-3 py-2 border border-border text-left text-text-muted font-medium">Véhicule</th>
-                  <th className="px-3 py-2 border border-border text-left text-text-muted font-medium">Dossier existant</th>
-                </tr>
-              </thead>
-              <tbody>
-                {duplicates.map((d: any) => (
-                  <tr key={d.rowIndex} className={selectedDuplicates.has(d.rowIndex) ? 'bg-accent-orange/5' : 'opacity-40'}>
-                    <td className="px-3 py-2 border border-border/40">
-                      <input type="checkbox" checked={selectedDuplicates.has(d.rowIndex)} onChange={() => toggle(d.rowIndex)} />
-                    </td>
-                    <td className="px-3 py-2 border border-border/40 text-text-muted">{d.rowIndex + 1}</td>
-                    <td className="px-3 py-2 border border-border/40 text-text-secondary font-medium">{d.nom}</td>
-                    <td className="px-3 py-2 border border-border/40 text-text-secondary">{d.prenom}</td>
-                    <td className="px-3 py-2 border border-border/40 text-text-muted">{d.dateDemande || '—'}</td>
-                    <td className="px-3 py-2 border border-border/40 text-text-muted">
-                      {[d.marqueNom, d.modeleNom].filter(Boolean).join(' ') || '—'}
-                    </td>
-                    <td className="px-3 py-2 border border-border/40 text-accent-blue font-mono text-xs">
-                      {d.existingDossierNumero || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="border-t border-border p-4 flex items-center justify-between flex-shrink-0">
-            <button className="btn btn-ghost flex items-center gap-1" onClick={() => setStep('mapping')}>
-              <ChevronLeft size={14} /> Retour au mapping
-            </button>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-text-muted">
-                {selectedDuplicates.size} doublon(s) sélectionné(s) · {toImport + selectedDuplicates.size} ligne(s) total
-              </span>
-              <button className="btn btn-primary" onClick={() => runImport([...selectedDuplicates])}>
-                <Check size={14} /> Importer
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const visibleFields = FIELDS
 
   // ── ÉTAPE IMPORTING / ANALYZING ──
   if (step === 'importing' || step === 'analyzing') {
     return (
       <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
         <div className="bg-bg-card border border-border rounded-lg p-10 flex flex-col items-center gap-4">
-          <Loader2 size={32} className="animate-spin text-accent-blue" />
+          <Loader2 size={32} className="animate-spin text-accent" />
           <p className="text-text-muted text-sm">
-            {step === 'analyzing' ? 'Analyse des doublons en cours...' : 'Import en cours...'}
+            {step === 'analyzing' ? 'Analyse en cours...' : 'Import en cours...'}
           </p>
         </div>
       </div>
@@ -276,7 +186,7 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
       <div className="bg-bg-card border border-border rounded-lg flex flex-col" style={{ width: 860, maxHeight: '92vh' }}>
         <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <FileSpreadsheet size={16} className="text-accent-blue" />
+            <FileSpreadsheet size={16} className="text-accent" />
             <div>
               <h2 className="font-semibold text-text-primary text-sm">Import Excel — Correspondance des colonnes</h2>
               <p className="text-xs text-text-muted">{fileName}{totalRows > 0 ? ` · ${totalRows} lignes` : ''}</p>
@@ -287,7 +197,7 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
 
         {loading ? (
           <div className="flex-1 flex items-center justify-center p-8">
-            <Loader2 size={24} className="animate-spin text-accent-blue" />
+            <Loader2 size={24} className="animate-spin text-accent" />
             <span className="ml-3 text-text-muted">Lecture du fichier...</span>
           </div>
         ) : (
@@ -305,7 +215,7 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
                       return (
                         <div key={f.key} className="flex items-center gap-2 px-4 py-1.5 border-b border-border/50">
                           <span className="text-xs text-text-secondary w-40 flex-shrink-0">
-                            {f.label}{f.required && <span className="text-accent-red ml-0.5">*</span>}
+                            {f.label}{f.required && <span className="text-color-danger ml-0.5">*</span>}
                           </span>
                           {isPrenom ? (
                             <select
@@ -334,8 +244,8 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
                   </div>
                 ))}
                 {isSplit && (
-                  <div className="px-4 py-2 bg-accent-blue/10 border-t border-accent-blue/20 text-xs text-accent-blue">
-                    Split actif : "DUPONT Jean" → Nom="DUPONT" / Prénom="Jean"
+                  <div className="px-4 py-2 bg-accent/10 border-t border-accent/20 text-xs text-accent">
+                    Split actif : "Jean DUPONT" → Prénom="Jean" / Nom="DUPONT"
                   </div>
                 )}
               </div>
@@ -384,7 +294,7 @@ export default function ExcelImportModal({ filePath, fileName, onClose, onDone }
             <div className="border-t border-border p-4 flex items-center justify-between flex-shrink-0">
               <div>
                 {error && (
-                  <div className="flex items-center gap-2 text-sm text-accent-red">
+                  <div className="flex items-center gap-2 text-sm text-color-danger">
                     <AlertTriangle size={14} /> {error}
                   </div>
                 )}

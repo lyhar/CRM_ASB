@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Plus, Edit2, Trash2, X, Shield, User, Upload, Mail, Check, Image, FileText, RotateCcw, Loader2, Database, FolderOpen, AlertTriangle } from 'lucide-react'
+﻿import { useEffect, useState } from 'react'
+import { Plus, Edit2, Trash2, X, Shield, User, Upload, Mail, Check, Image, FileText, RotateCcw, Loader2, Database, FolderOpen, AlertTriangle, Building2, Send } from 'lucide-react'
 import { DEFAULT_TEMPLATES } from '../lib/emailTemplates'
 import RichTextEditor from '../components/RichTextEditor'
 import ExcelImportModal from '../components/ExcelImportModal'
@@ -8,6 +8,13 @@ type SmtpState = {
   smtp_host: string; smtp_port: string; smtp_secure: string
   smtp_user: string; smtp_password: string; smtp_from: string
   email_signature: string; email_signature_img: string
+}
+
+type SocieteState = {
+  nom_societe: string; forme_juridique: string; siret_societe: string
+  tva_societe: string; capital_societe: string; adresse_societe: string
+  cp_societe: string; ville_societe: string; tel_societe: string
+  email_societe: string; site_societe: string; mention_legale: string
 }
 
 type TplState = {
@@ -49,7 +56,7 @@ function UpdateChecker() {
       {status === 'checking' ? (
         <><Loader2 size={14} className="animate-spin" /> Vérification en cours...</>
       ) : status === 'uptodate' ? (
-        <><Check size={14} className="text-green-400" /> Déjà à jour !</>
+        <><Check size={14} className="text-color-success" /> Déjà à jour !</>
       ) : (
         <><RotateCcw size={14} /> Rechercher une mise à jour</>
       )}
@@ -58,7 +65,7 @@ function UpdateChecker() {
 }
 
 export default function Parametres() {
-  const [tab, setTab] = useState<'users' | 'email' | 'templates' | 'sauvegarde'>('users')
+  const [tab, setTab] = useState<'users' | 'email' | 'templates' | 'sauvegarde' | 'societe'>('users')
   const [users, setUsers] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<any>(null)
@@ -79,6 +86,17 @@ export default function Parametres() {
   const [tpl, setTpl] = useState<TplState>({ ...TPL_DEFAULTS })
   const [tplSaving, setTplSaving] = useState(false)
   const [tplStatus, setTplStatus] = useState('')
+  const [tplTestSending, setTplTestSending] = useState('')
+  const [tplTestStatus, setTplTestStatus] = useState('')
+
+  const [societe, setSociete] = useState<SocieteState>({
+    nom_societe: '', forme_juridique: '', siret_societe: '',
+    tva_societe: '', capital_societe: '', adresse_societe: '',
+    cp_societe: '', ville_societe: '', tel_societe: '',
+    email_societe: '', site_societe: '', mention_legale: ''
+  })
+  const [societeSaving, setSocieteSaving] = useState(false)
+  const [societeStatus, setSocieteStatus] = useState('')
 
   const [backups, setBackups] = useState<any[]>([])
   const [backupStatus, setBackupStatus] = useState('')
@@ -103,6 +121,20 @@ export default function Parametres() {
           tpl_3mois_sujet: res.data.tpl_3mois_sujet || prev.tpl_3mois_sujet,
           tpl_3mois_html: res.data.tpl_3mois_html || prev.tpl_3mois_html,
         }))
+        setSociete(prev => ({
+          nom_societe: res.data.nom_societe || prev.nom_societe,
+          forme_juridique: res.data.forme_juridique || prev.forme_juridique,
+          siret_societe: res.data.siret_societe || prev.siret_societe,
+          tva_societe: res.data.tva_societe || prev.tva_societe,
+          capital_societe: res.data.capital_societe || prev.capital_societe,
+          adresse_societe: res.data.adresse_societe || prev.adresse_societe,
+          cp_societe: res.data.cp_societe || prev.cp_societe,
+          ville_societe: res.data.ville_societe || prev.ville_societe,
+          tel_societe: res.data.tel_societe || prev.tel_societe,
+          email_societe: res.data.email_societe || prev.email_societe,
+          site_societe: res.data.site_societe || prev.site_societe,
+          mention_legale: res.data.mention_legale || prev.mention_legale,
+        }))
       }
     })
   }, [])
@@ -125,8 +157,8 @@ export default function Parametres() {
     setSmtpStatus('')
     const res = await window.api.sendEmail({
       to: smtp.smtp_user,
-      subject: 'Test SMTP — Trajectoire',
-      html: '<p>Email de test envoyé depuis Trajectoire. Configuration SMTP fonctionnelle ✅</p>'
+      subject: 'Test SMTP — CRM Trajectoire',
+      html: '<p>Email de test envoyé depuis CRM Trajectoire. Configuration SMTP fonctionnelle ✅</p>'
     })
     setTestSending(false)
     setSmtpStatus(res.success ? 'Email de test envoyé avec succès !' : `Erreur : ${res.error}`)
@@ -218,8 +250,35 @@ export default function Parametres() {
     loadBackups()
   }
 
+  const saveSociete = async () => {
+    setSocieteSaving(true)
+    setSocieteStatus('')
+    for (const [k, v] of Object.entries(societe)) await window.api.setSetting(k, v)
+    setSocieteSaving(false)
+    setSocieteStatus('Informations sauvegardées !')
+    setTimeout(() => setSocieteStatus(''), 3000)
+  }
+  const ss2 = (k: keyof SocieteState, v: string) => setSociete(p => ({ ...p, [k]: v }))
+
+  const sendTestEmail = async (sujet: string, html: string) => {
+    if (!smtp.smtp_user) { setTplTestStatus('Configurez d\'abord votre email SMTP'); return }
+    setTplTestSending(sujet)
+    setTplTestStatus('')
+    const sampleData: Record<string, string> = {
+      prenom: 'Jean', vehicule: 'BMW Série 3', financement: 'LLD',
+      dateFinContrat: new Date(Date.now() + 365 * 86400000).toLocaleDateString('fr-FR'),
+      concessionnaire: 'BMW Paris',
+    }
+    const replace = (str: string) => str.replace(/\{\{(\w+)\}\}/g, (_, k) => sampleData[k] || `{{${k}}}`)
+    const res = await window.api.sendEmail({ to: smtp.smtp_user, subject: `[TEST] ${replace(sujet)}`, html: replace(html) })
+    setTplTestSending('')
+    setTplTestStatus(res.success ? `✓ Test envoyé à ${smtp.smtp_user}` : `Erreur : ${res.error}`)
+    setTimeout(() => setTplTestStatus(''), 5000)
+  }
+
   const TABS = [
     { id: 'users', label: 'Utilisateurs', icon: <User size={13} /> },
+    { id: 'societe', label: 'Ma Société', icon: <Building2 size={13} /> },
     { id: 'email', label: 'Email / SMTP', icon: <Mail size={13} /> },
     { id: 'templates', label: 'Templates email', icon: <FileText size={13} /> },
     { id: 'sauvegarde', label: 'Sauvegardes', icon: <Database size={13} /> },
@@ -233,16 +292,14 @@ export default function Parametres() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-text-primary">Paramètres</h1>
-        <div className="flex rounded border border-border overflow-hidden">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-4 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${tab === t.id ? 'bg-accent-blue text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
-              {t.icon} {t.label}
-            </button>
-          ))}
-        </div>
+      <h1 className="text-xl font-semibold text-text-primary">Paramètres</h1>
+      <div className="flex gap-1 border-b border-border -mt-2">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-4 py-2 text-sm flex items-center gap-1.5 border-b-2 transition-colors -mb-px ${tab === t.id ? 'border-accent text-accent' : 'border-transparent text-text-secondary hover:text-text-primary'}`}>
+            {t.icon} {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── SMTP ── */}
@@ -288,7 +345,7 @@ export default function Parametres() {
                 <Mail size={14} /> {testSending ? 'Envoi...' : 'Tester la connexion'}
               </button>
               {smtpStatus && (
-                <span className={`text-sm ${smtpStatus.includes('succès') || smtpStatus.includes('sauvegardés') ? 'text-accent-green' : 'text-accent-red'}`}>
+                <span className={`text-sm ${smtpStatus.includes('succès') || smtpStatus.includes('sauvegardés') ? 'text-color-success' : 'text-color-danger'}`}>
                   {smtpStatus}
                 </span>
               )}
@@ -311,7 +368,7 @@ export default function Parametres() {
                   <Upload size={13} /> Choisir une image
                 </button>
                 {smtp.email_signature_img && (
-                  <button className="text-xs text-accent-red hover:underline" onClick={() => ss('email_signature_img', '')}>
+                  <button className="text-xs text-color-danger hover:underline" onClick={() => ss('email_signature_img', '')}>
                     Supprimer
                   </button>
                 )}
@@ -342,7 +399,7 @@ export default function Parametres() {
             <div className="text-xs text-text-muted space-y-1">
               <p>• Host : <code className="text-text-secondary">smtp.gmail.com</code> | Port : <code className="text-text-secondary">587</code> | Mode : STARTTLS</p>
               <p>• Le mot de passe doit être un <strong className="text-text-secondary">App Password</strong> Google (pas votre mot de passe Gmail habituel)</p>
-              <p>• <button onClick={() => window.api.openExternal('https://support.google.com/mail/answer/185833?hl=fr')} className="text-accent-blue hover:underline">Créer un App Password Google →</button></p>
+              <p>• <button onClick={() => window.api.openExternal('https://support.google.com/mail/answer/185833?hl=fr')} className="text-accent hover:underline">Créer un App Password Google →</button></p>
             </div>
           </div>
         </div>
@@ -357,7 +414,7 @@ export default function Parametres() {
             </p>
             <div className="flex flex-wrap gap-1.5 mt-3">
               {['{{prenom}}', '{{vehicule}}', '{{financement}}', '{{dateFinContrat}}', '{{concessionnaire}}'].map(v => (
-                <code key={v} className="text-xs bg-bg-secondary border border-border rounded px-2 py-0.5 text-accent-blue">{v}</code>
+                <code key={v} className="text-xs bg-bg-secondary border border-border rounded px-2 py-0.5 text-accent">{v}</code>
               ))}
             </div>
           </div>
@@ -366,13 +423,23 @@ export default function Parametres() {
             <div key={section.key} className="card space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium text-text-primary flex items-center gap-2">
-                  <Mail size={13} className="text-accent-blue" /> {section.label}
+                  <Mail size={13} className="text-accent" /> {section.label}
                 </h3>
-                <button
-                  onClick={() => resetTpl(section.key)}
-                  className="btn btn-ghost text-xs text-text-muted">
-                  <RotateCcw size={11} /> Restaurer défaut
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => sendTestEmail(tpl[section.sujetKey], tpl[section.htmlKey])}
+                    disabled={tplTestSending === tpl[section.sujetKey]}
+                    className="btn btn-ghost text-xs text-text-muted border border-border">
+                    {tplTestSending === tpl[section.sujetKey]
+                      ? <><Loader2 size={11} className="animate-spin" /> Envoi...</>
+                      : <><Send size={11} /> Tester</>}
+                  </button>
+                  <button
+                    onClick={() => resetTpl(section.key)}
+                    className="btn btn-ghost text-xs text-text-muted">
+                    <RotateCcw size={11} /> Restaurer défaut
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="form-label">Objet</label>
@@ -399,8 +466,101 @@ export default function Parametres() {
               <Check size={14} /> {tplSaving ? 'Sauvegarde...' : 'Sauvegarder les templates'}
             </button>
             {tplStatus && (
-              <span className={`text-sm ${tplStatus.includes('sauvegardés') ? 'text-accent-green' : 'text-accent-red'}`}>
+              <span className={`text-sm ${tplStatus.includes('sauvegardés') ? 'text-color-success' : 'text-color-danger'}`}>
                 {tplStatus}
+              </span>
+            )}
+            {tplTestStatus && (
+              <span className={`text-sm ${tplTestStatus.startsWith('✓') ? 'text-color-success' : 'text-color-danger'}`}>
+                {tplTestStatus}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MA SOCIÉTÉ ── */}
+      {tab === 'societe' && (
+        <div className="space-y-4">
+          <div className="card space-y-4">
+            <h2 className="font-medium text-text-primary flex items-center gap-2"><Building2 size={14} /> Identité de la société</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="form-label">Nom de la société</label>
+                <input className="form-input" value={societe.nom_societe} onChange={e => ss2('nom_societe', e.target.value)} placeholder="Trajectoire Auto SAS" />
+              </div>
+              <div>
+                <label className="form-label">Forme juridique</label>
+                <select className="form-input" value={societe.forme_juridique} onChange={e => ss2('forme_juridique', e.target.value)}>
+                  <option value="">— Choisir —</option>
+                  {['SAS', 'SASU', 'SARL', 'EURL', 'SA', 'SCI', 'EI', 'EIRL', 'Micro-entreprise'].map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Capital social</label>
+                <input className="form-input" value={societe.capital_societe} onChange={e => ss2('capital_societe', e.target.value)} placeholder="1 000 €" />
+              </div>
+              <div>
+                <label className="form-label">N° SIRET</label>
+                <input className="form-input" value={societe.siret_societe} onChange={e => ss2('siret_societe', e.target.value)} placeholder="123 456 789 00012" />
+              </div>
+              <div>
+                <label className="form-label">N° TVA intracommunautaire</label>
+                <input className="form-input" value={societe.tva_societe} onChange={e => ss2('tva_societe', e.target.value)} placeholder="FR12 345678901" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <h2 className="font-medium text-text-primary text-sm">Coordonnées</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="form-label">Adresse</label>
+                <input className="form-input" value={societe.adresse_societe} onChange={e => ss2('adresse_societe', e.target.value)} placeholder="12 rue de la Paix" />
+              </div>
+              <div>
+                <label className="form-label">Code postal</label>
+                <input className="form-input" value={societe.cp_societe} onChange={e => ss2('cp_societe', e.target.value)} placeholder="75001" />
+              </div>
+              <div>
+                <label className="form-label">Ville</label>
+                <input className="form-input" value={societe.ville_societe} onChange={e => ss2('ville_societe', e.target.value)} placeholder="Paris" />
+              </div>
+              <div>
+                <label className="form-label">Téléphone</label>
+                <input className="form-input" value={societe.tel_societe} onChange={e => ss2('tel_societe', e.target.value)} placeholder="06 XX XX XX XX" />
+              </div>
+              <div>
+                <label className="form-label">Email de contact</label>
+                <input className="form-input" value={societe.email_societe} onChange={e => ss2('email_societe', e.target.value)} placeholder="contact@exemple.fr" />
+              </div>
+              <div className="col-span-2">
+                <label className="form-label">Site web</label>
+                <input className="form-input" value={societe.site_societe} onChange={e => ss2('site_societe', e.target.value)} placeholder="www.exemple.fr" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card space-y-3">
+            <h2 className="font-medium text-text-primary text-sm">Mention légale</h2>
+            <p className="text-xs text-text-muted">Texte libre (pied de page des documents, mentions légales, etc.)</p>
+            <textarea
+              className="form-input min-h-20 resize-none text-sm"
+              value={societe.mention_legale}
+              onChange={e => ss2('mention_legale', e.target.value)}
+              placeholder="Société immatriculée au RCS de Paris sous le n° 123 456 789 — APE 4511Z"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button className="btn btn-primary" onClick={saveSociete} disabled={societeSaving}>
+              <Check size={14} /> {societeSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+            </button>
+            {societeStatus && (
+              <span className={`text-sm ${societeStatus.includes('sauvegardées') ? 'text-color-success' : 'text-color-danger'}`}>
+                {societeStatus}
               </span>
             )}
           </div>
@@ -420,8 +580,8 @@ export default function Parametres() {
           {users.map(u => (
             <div key={u.id} className="flex items-center justify-between p-3 bg-bg-secondary rounded border border-border">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-accent-blue/20 flex items-center justify-center">
-                  {u.role === 'ADMIN' ? <Shield size={14} className="text-accent-blue" /> : <User size={14} className="text-accent-blue" />}
+                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                  {u.role === 'ADMIN' ? <Shield size={14} className="text-accent" /> : <User size={14} className="text-accent" />}
                 </div>
                 <div>
                   <div className="text-sm font-medium text-text-primary">{u.prenom} {u.nom}</div>
@@ -447,11 +607,11 @@ export default function Parametres() {
           <button className="btn btn-ghost border border-border" onClick={handleImport}>
             <Upload size={14} /> Importer un fichier Excel
           </button>
-          <button className="btn btn-ghost border border-red-800 text-accent-red hover:bg-red-900/20" onClick={handlePurge}>
+          <button className="btn btn-ghost border border-red-800 text-color-danger hover:bg-red-900/20" onClick={handlePurge}>
             <Trash2 size={14} /> Purger toutes les données
           </button>
           {importStatus && (
-            <span className={`text-sm ${importStatus.startsWith('✓') ? 'text-accent-green' : 'text-accent-red'}`}>
+            <span className={`text-sm ${importStatus.startsWith('✓') ? 'text-color-success' : 'text-color-danger'}`}>
               {importStatus}
             </span>
           )}
@@ -465,7 +625,7 @@ export default function Parametres() {
             {/* Identité app */}
             <div className="space-y-2">
               {[
-                ['Application', 'Trajectoire'],
+                ['Application', 'CRM Trajectoire'],
                 ['Version', appInfo.version],
                 ['Mode', appInfo.packaged ? 'Production (installé)' : 'Développement'],
               ].map(([l, v]) => (
@@ -488,7 +648,7 @@ export default function Parametres() {
                 <div key={l} className="space-y-0.5">
                   <div className="text-xs text-text-muted">{l}</div>
                   <div
-                    className="text-xs text-text-secondary font-mono bg-bg-primary rounded px-2 py-1 break-all cursor-pointer hover:text-accent-blue transition-colors"
+                    className="text-xs text-text-secondary font-mono bg-bg-primary rounded px-2 py-1 break-all cursor-pointer hover:text-accent transition-colors"
                     title="Cliquer pour ouvrir dans l'Explorateur"
                     onClick={() => window.api.openExternal('file:///' + v.replace(/\\/g, '/'))}>
                     {v}
@@ -514,7 +674,7 @@ export default function Parametres() {
           </div>
         ) : (
           <div className="space-y-2 text-sm mb-4">
-            <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">Trajectoire</span></div>
+            <div className="flex justify-between"><span className="text-text-muted">Application</span><span className="text-text-secondary">CRM Trajectoire</span></div>
           </div>
         )}
         <UpdateChecker />
@@ -533,7 +693,7 @@ export default function Parametres() {
               <button className="btn btn-ghost" onClick={() => window.api.openBackupFolder()}><FolderOpen size={14} /> Ouvrir le dossier de sauvegardes</button>
             </div>
             {backupStatus && (
-              <p className={`text-sm ${backupStatus.startsWith('✓') ? 'text-green-400' : 'text-accent-red'}`}>{backupStatus}</p>
+              <p className={`text-sm ${backupStatus.startsWith('✓') ? 'text-color-success' : 'text-color-danger'}`}>{backupStatus}</p>
             )}
           </div>
 
@@ -551,7 +711,7 @@ export default function Parametres() {
                 {backups.map((b, i) => (
                   <div key={b.name} className="flex items-center justify-between text-sm py-1.5 border-b border-border last:border-0">
                     <div className="flex items-center gap-2">
-                      {i === 0 && <span className="text-xs bg-accent-blue/20 text-accent-blue px-1.5 py-0.5 rounded">Dernière</span>}
+                      {i === 0 && <span className="text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded">Dernière</span>}
                       <span className="text-text-secondary font-mono text-xs">{b.name.replace('crm_', '').replace('.db', '')}</span>
                     </div>
                     <span className="text-text-muted text-xs">{(b.size / 1024).toFixed(0)} Ko</span>
@@ -562,19 +722,19 @@ export default function Parametres() {
           </div>
 
           {/* Restauration */}
-          <div className="card space-y-3 border border-accent-orange/30">
-            <h2 className="font-medium text-text-primary flex items-center gap-2"><AlertTriangle size={15} className="text-accent-orange" /> Restaurer une sauvegarde</h2>
+          <div className="card space-y-3 border border-color-warning/30">
+            <h2 className="font-medium text-text-primary flex items-center gap-2"><AlertTriangle size={15} className="text-color-warning" /> Restaurer une sauvegarde</h2>
             <p className="text-sm text-text-muted">
               Remplace la base de données actuelle par un fichier de sauvegarde. Une copie de sécurité est créée automatiquement avant la restauration.
-              <strong className="text-accent-orange"> Cette action est irréversible.</strong>
+              <strong className="text-color-warning"> Cette action est irréversible.</strong>
             </p>
             {!restoreConfirm ? (
-              <button className="btn border border-accent-orange/50 text-accent-orange hover:bg-accent-orange/10 text-sm" onClick={() => setRestoreConfirm(true)}>
+              <button className="btn border border-color-warning/50 text-color-warning hover:bg-color-warning/10 text-sm" onClick={() => setRestoreConfirm(true)}>
                 Restaurer depuis un fichier...
               </button>
             ) : (
               <div className="flex items-center gap-3">
-                <span className="text-sm text-accent-orange">Confirmer la restauration ?</span>
+                <span className="text-sm text-color-warning">Confirmer la restauration ?</span>
                 <button className="btn btn-danger text-sm" onClick={handleRestore}>Oui, restaurer</button>
                 <button className="btn text-sm" onClick={() => setRestoreConfirm(false)}>Annuler</button>
               </div>

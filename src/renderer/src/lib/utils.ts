@@ -34,10 +34,10 @@ export const STATUT_LABELS: Record<string, string> = {
 }
 
 export const STATUT_COLORS: Record<string, string> = {
-  OUVERT: 'bg-accent-blue/20 text-accent-blue',
-  GAGNE: 'bg-accent-green/20 text-accent-green',
-  PERDU: 'bg-accent-red/20 text-accent-red',
-  EN_ATTENTE: 'bg-accent-yellow/20 text-accent-yellow'
+  OUVERT:     'badge--accent',
+  GAGNE:      'badge--success',
+  PERDU:      'badge--danger',
+  EN_ATTENTE: 'badge--warning'
 }
 
 export const FINANCEMENT_LABELS: Record<string, string> = {
@@ -59,9 +59,9 @@ export const COMMISSION_LABELS: Record<string, string> = {
 }
 
 export const COMMISSION_COLORS: Record<string, string> = {
-  A_FACTURER: 'bg-accent-orange/20 text-accent-orange',
-  FACTUREE: 'bg-accent-blue/20 text-accent-blue',
-  PAYEE: 'bg-accent-green/20 text-accent-green'
+  A_FACTURER: 'badge--warning',
+  FACTUREE:   'badge--accent',
+  PAYEE:      'badge--success'
 }
 
 export const LIVRAISON_LABELS: Record<string, string> = {

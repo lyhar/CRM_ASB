@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Flame, FolderOpen, ChevronUp, ChevronDown, Download } from 'lucide-react'
 import { formatDate, formatCurrency, STATUT_LABELS, STATUT_COLORS, FINANCEMENT_LABELS, FINANCEMENT_COLORS, COMMISSION_LABELS, COMMISSION_COLORS } from '../lib/utils'
@@ -42,15 +42,15 @@ export default function Dossiers() {
   const getLivraisonColor = (d: any) => {
     if (!d.dateLivraisonPrevue) return null
     if (d.statutLivraison === 'LIVREE') return 'bg-zinc-500'
-    if (d.statutLivraison === 'EN_RETARD') return 'bg-accent-red'
-    return 'bg-accent-green'
+    if (d.statutLivraison === 'EN_RETARD') return 'bg-color-danger'
+    return 'bg-color-success'
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text-primary">Dossiers</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             className="btn btn-ghost border border-border text-sm"
             onClick={() => window.api.exportExcel({ search: search || undefined, statut: statutFilter || undefined, typeFinancement: financementFilter || undefined })}
@@ -64,35 +64,33 @@ export default function Dossiers() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-sm">
-          <input
-            type="text"
-            placeholder="N° dossier, client, marque..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="form-input py-1.5 text-sm w-full"
-          />
-        </div>
-        <select value={statutFilter} onChange={e => setStatutFilter(e.target.value)} className="form-input w-40 py-1.5 text-sm">
-          <option value="">Tous les statuts</option>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          placeholder="N° dossier, client, marque..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="form-input py-1.5 text-sm flex-1 min-w-0"
+        />
+        <select value={statutFilter} onChange={e => setStatutFilter(e.target.value)} className="form-input py-1.5 text-sm shrink-0" style={{ width: '148px' }}>
+          <option value="">Tous statuts</option>
           <option value="OUVERT">Ouvert</option>
           <option value="EN_ATTENTE">En attente</option>
           <option value="GAGNE">Gagné</option>
           <option value="PERDU">Perdu</option>
         </select>
-        <select value={financementFilter} onChange={e => setFinancementFilter(e.target.value)} className="form-input w-36 py-1.5 text-sm">
-          <option value="">Tous types</option>
+        <select value={financementFilter} onChange={e => setFinancementFilter(e.target.value)} className="form-input py-1.5 text-sm shrink-0" style={{ width: '116px' }}>
+          <option value="">Tout type</option>
           <option value="LLD">LLD</option>
           <option value="LOA">LOA</option>
           <option value="CASH">Cash</option>
         </select>
-        <span className="text-text-muted text-sm">{dossiers.length} dossier{dossiers.length > 1 ? 's' : ''}</span>
+        <span className="text-text-muted text-sm whitespace-nowrap shrink-0">{dossiers.length} dossier{dossiers.length > 1 ? 's' : ''}</span>
       </div>
 
       {/* Table */}
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full">
+      <div className="card p-0 overflow-x-auto">
+        <table className="w-full min-w-max">
           <thead>
             <tr className="border-b border-border">
               <th className="w-8 pl-3 pr-1 py-3" />
@@ -134,12 +132,12 @@ export default function Dossiers() {
               return (
                 <tr key={d.id} className="table-row" onClick={() => navigate(`/dossiers/${d.id}`)}>
                   <td className="pl-3 pr-1 py-2.5 w-8">
-                    {d.estChaud === 1 && <Flame size={14} className="text-accent-orange" title="Chaud" />}
+                    {d.estChaud === 1 && <Flame size={14} className="text-color-warning" title="Chaud" />}
                   </td>
-                  <td className="px-3 py-2.5 text-sm font-mono text-accent-blue whitespace-nowrap">{d.numeroDossier}</td>
+                  <td className="px-3 py-2.5 text-sm font-mono text-accent whitespace-nowrap">{d.numeroDossier}</td>
                   <td className="px-3 py-2.5 text-sm text-text-primary whitespace-nowrap">
                     <span
-                      className="hover:text-accent-blue hover:underline cursor-pointer"
+                      className="hover:text-accent hover:underline cursor-pointer"
                       onClick={e => { e.stopPropagation(); navigate(`/clients/${d.clientId}`) }}
                     >
                       {d.clientPrenom} {d.clientNom}

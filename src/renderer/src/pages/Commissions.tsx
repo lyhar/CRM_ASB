@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+﻿import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Banknote, BarChart2, Download } from 'lucide-react'
 import {
@@ -27,8 +27,10 @@ export default function Commissions() {
   const { theme } = useTheme()
 
   const tooltipStyle = theme === 'dark'
-    ? { background: '#1a1a1a', border: '1px solid #262626', borderRadius: 6, color: '#e5e5e5', fontSize: 12 }
-    : { background: '#ffffff', border: '1px solid #d4d4d4', borderRadius: 6, color: '#171717', fontSize: 12 }
+    ? { backgroundColor: '#18181c', border: '1px solid #38363e', borderRadius: 6, color: '#ede9e4', fontSize: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.45)' }
+    : { backgroundColor: '#faf8f6', border: '1px solid #b8b3ac', borderRadius: 6, color: '#1a1714', fontSize: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.12)' }
+  const tooltipLabelStyle = { color: theme === 'dark' ? '#ede9e4' : '#1a1714', fontWeight: 600 }
+  const tooltipItemStyle = { color: theme === 'dark' ? '#ede9e4' : '#1a1714' }
 
   const load = async () => {
     const res = await window.api.getDossiers({ statutCommission: tab || undefined })
@@ -80,19 +82,19 @@ export default function Commissions() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text-primary">Commissions</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button onClick={handleExport} className="btn btn-ghost border border-border text-xs">
             <Download size={13} /> Exporter Excel
           </button>
           <div className="flex rounded border border-border overflow-hidden">
             <button onClick={() => setView('list')}
-              className={`px-3 py-1.5 text-sm transition-colors flex items-center gap-1 ${view === 'list' ? 'bg-accent-blue text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
+              className={`px-3 py-1.5 text-sm transition-colors flex items-center gap-1 ${view === 'list' ? 'bg-accent text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
               <Banknote size={13} /> Liste
             </button>
             <button onClick={() => setView('chart')}
-              className={`px-3 py-1.5 text-sm transition-colors flex items-center gap-1 ${view === 'chart' ? 'bg-accent-blue text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
+              className={`px-3 py-1.5 text-sm transition-colors flex items-center gap-1 ${view === 'chart' ? 'bg-accent text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
               <BarChart2 size={13} /> Rapport
             </button>
           </div>
@@ -100,18 +102,18 @@ export default function Commissions() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="stat-card">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="stat-card border-t-2 border-t-color-warning">
           <div className="text-xs text-text-muted mb-1 uppercase tracking-wide">À facturer</div>
-          <div className="text-2xl font-bold text-accent-orange">{formatCurrency(totals['A_FACTURER'] || 0)}</div>
+          <div className="text-2xl font-bold text-color-warning">{formatCurrency(totals['A_FACTURER'] || 0)}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card border-t-2 border-t-accent">
           <div className="text-xs text-text-muted mb-1 uppercase tracking-wide">Facturées (en attente)</div>
-          <div className="text-2xl font-bold text-accent-blue">{formatCurrency(totals['FACTUREE'] || 0)}</div>
+          <div className="text-2xl font-bold text-accent">{formatCurrency(totals['FACTUREE'] || 0)}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card border-t-2 border-t-color-success">
           <div className="text-xs text-text-muted mb-1 uppercase tracking-wide">Payées</div>
-          <div className="text-2xl font-bold text-accent-green">{formatCurrency(totals['PAYEE'] || 0)}</div>
+          <div className="text-2xl font-bold text-color-success">{formatCurrency(totals['PAYEE'] || 0)}</div>
         </div>
       </div>
 
@@ -132,11 +134,16 @@ export default function Commissions() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="mois" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v ? `${Math.round(v / 1000)}k€` : '0'} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [formatCurrency(v), n]} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                labelStyle={tooltipLabelStyle}
+                itemStyle={tooltipItemStyle}
+                formatter={(v: number, n: string) => [formatCurrency(v), n]}
+              />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
-              <Bar dataKey="À facturer" fill="#f97316" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="Facturées" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="Payées" fill="#22c55e" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="À facturer" fill="#fbbf24" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="Facturées" fill="#c9843a" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="Payées" fill="#4ade80" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -147,19 +154,19 @@ export default function Commissions() {
         <div className="flex gap-1 border-b border-border">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2 text-sm border-b-2 transition-colors -mb-px ${tab === t.key ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-secondary hover:text-text-primary'}`}>
+              className={`px-4 py-2 text-sm border-b-2 transition-colors -mb-px ${tab === t.key ? 'border-accent text-accent' : 'border-transparent text-text-secondary hover:text-text-primary'}`}>
               {t.label}
             </button>
           ))}
         </div>
 
         {/* Table */}
-        <div className="card p-0">
+        <div className="card p-0 overflow-x-auto">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <span className="text-sm text-text-secondary">{dossiers.length} dossier{dossiers.length > 1 ? 's' : ''}</span>
             <span className="text-sm font-semibold text-text-primary">Total : {formatCurrency(total)}</span>
           </div>
-          <table className="w-full">
+          <table className="w-full min-w-[860px]">
             <thead>
               <tr className="border-b border-border">
                 {['N° Dossier', 'Client', 'Véhicule', 'Type', 'Montant', 'Statut', 'Date facture', 'Date paiement', 'Relance'].map(h => (
@@ -177,7 +184,7 @@ export default function Commissions() {
                 </tr>
               ) : dossiers.map(d => (
                 <tr key={d.id} className="table-row" onClick={() => navigate(`/dossiers/${d.id}`)}>
-                  <td className="px-4 py-2.5 text-sm font-mono text-accent-blue">{d.numeroDossier}</td>
+                  <td className="px-4 py-2.5 text-sm font-mono text-accent">{d.numeroDossier}</td>
                   <td className="px-4 py-2.5 text-sm text-text-primary">{d.clientPrenom} {d.clientNom}</td>
                   <td className="px-4 py-2.5 text-sm text-text-secondary">{[d.marqueNom, d.modeleNom].filter(Boolean).join(' ') || '-'}</td>
                   <td className="px-4 py-2.5 text-sm text-text-secondary">{FINANCEMENT_LABELS[d.typeFinancement] || d.typeFinancement}</td>

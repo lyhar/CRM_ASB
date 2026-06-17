@@ -18,6 +18,7 @@ const api = {
   // Dossiers
   getDossiers: (filters?: unknown) => ipcRenderer.invoke('dossiers:getAll', filters),
   getDossier: (id: number) => ipcRenderer.invoke('dossiers:getOne', id),
+  getAdjacentDossiers: (id: number) => ipcRenderer.invoke('dossiers:getAdjacent', id),
   createDossier: (data: unknown) => ipcRenderer.invoke('dossiers:create', data),
   updateDossier: (id: number, data: unknown) => ipcRenderer.invoke('dossiers:update', id, data),
   deleteDossier: (id: number) => ipcRenderer.invoke('dossiers:delete', id),
@@ -53,7 +54,7 @@ const api = {
   deleteRelance: (id: number) => ipcRenderer.invoke('relances:delete', id),
 
   // Dashboard
-  getDashboardStats: () => ipcRenderer.invoke('dashboard:getStats'),
+  getDashboardStats: (year?: number) => ipcRenderer.invoke('dashboard:getStats', year),
 
   // Recherche globale
   searchGlobal: (q: string) => ipcRenderer.invoke('search:global', q),

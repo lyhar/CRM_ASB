@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 
 interface Props {
@@ -76,9 +76,9 @@ export default function ClientForm({ client, onClose }: Props) {
           <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4">
-          {error && <div className="px-3 py-2 bg-accent-red/10 border border-accent-red/20 rounded text-accent-red text-sm">{error}</div>}
+          {error && <div className="px-3 py-2 bg-color-danger/10 border border-color-danger/20 rounded text-color-danger text-sm">{error}</div>}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="form-label">Type</label>
               <select className="form-input" value={form.type} onChange={e => set('type', e.target.value)}>
@@ -89,11 +89,11 @@ export default function ClientForm({ client, onClose }: Props) {
             <div className="flex items-end gap-4">
 
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.estPremierAppelant} onChange={e => set('estPremierAppelant', e.target.checked)} className="accent-accent-blue" />
+                <input type="checkbox" checked={form.estPremierAppelant} onChange={e => set('estPremierAppelant', e.target.checked)} className="accent-accent" />
                 <span className="text-sm text-text-secondary">Premier appelant</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.avisGoogle} onChange={e => set('avisGoogle', e.target.checked)} className="accent-accent-blue" />
+                <input type="checkbox" checked={form.avisGoogle} onChange={e => set('avisGoogle', e.target.checked)} className="accent-accent" />
                 <span className="text-sm text-text-secondary">Avis Google</span>
               </label>
             </div>
@@ -106,7 +106,7 @@ export default function ClientForm({ client, onClose }: Props) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="form-label">Prénom *</label>
               <input className="form-input" value={form.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénom" />
@@ -117,7 +117,7 @@ export default function ClientForm({ client, onClose }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="form-label">Date de naissance</label>
               <input type="date" className="form-input" value={form.dateNaissance} onChange={e => set('dateNaissance', e.target.value)} />
@@ -138,7 +138,7 @@ export default function ClientForm({ client, onClose }: Props) {
             <input className="form-input" value={form.adresse} onChange={e => set('adresse', e.target.value)} placeholder="Adresse" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="form-label">Code postal</label>
               <input className="form-input" value={form.codePostal} onChange={e => set('codePostal', e.target.value)} placeholder="75000" />
@@ -149,7 +149,7 @@ export default function ClientForm({ client, onClose }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="form-label">Référé par</label>
               <select className="form-input" value={form.referentId} onChange={e => set('referentId', e.target.value)}>

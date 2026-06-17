@@ -63,40 +63,55 @@ function setupAutoUpdater(): void {
   }))
 }
 
-// Dossier de données : [dossier_install]/data/ — dans le même dossier que l'exe,
-// choisi par l'utilisateur à l'installation. Fallback AppData si non accessible en écriture.
+// Dossier de données : lu depuis le registre (chemin choisi par l'utilisateur à l'installation)
+// Fallback : dossier frère du dossier d'installation (ex: C:\Program Files\CRM Trajectoire\data)
 function getDataDir(): string {
   if (!app.isPackaged) {
     const dev = join(app.getAppPath(), 'dev-data')
     if (!existsSync(dev)) mkdirSync(dev, { recursive: true })
     return dev
   }
-  const exeData = join(dirname(app.getPath('exe')), 'data')
+  // Lire le chemin depuis le registre (écrit par l'installeur NSIS)
   try {
-    if (!existsSync(exeData)) mkdirSync(exeData, { recursive: true })
-    // Test d'écriture pour détecter un dossier protégé (ex: Program Files)
-    const probe = join(exeData, '.writable')
-    writeFileSync(probe, '')
-    unlinkSync(probe)
-    return exeData
-  } catch {
-    // Fallback : AppData si le dossier d'installation est en lecture seule
-    const fallback = join(app.getPath('appData'), 'Trajectoire')
-    if (!existsSync(fallback)) mkdirSync(fallback, { recursive: true })
-    return fallback
-  }
+    const { execSync } = require('child_process')
+    const out: string = execSync('reg query "HKLM\\Software\\CRM Trajectoire" /v DataDir', {
+      encoding: 'utf8', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe']
+    })
+    const match = out.match(/DataDir\s+REG_SZ\s+(.+)/)
+    if (match) {
+      const dir = match[1].trim()
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      return dir
+    }
+  } catch {}
+  // Fallback : dossier frère du dossier d'installation
+  const appDir = dirname(app.getPath('exe'))
+  const dataDir = join(dirname(appDir), 'data')
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true })
+  return dataDir
 }
 
-// Migration : récupère les données depuis tous les anciens emplacements
+// Mirror AppData — survivra toujours aux réinstallations/mises à jour
+function getAppDataMirrorDir(): string {
+  const dir = join(app.getPath('appData'), 'CRM Trajectoire')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+// Migration : récupère les données depuis les anciens emplacements si besoin
 function migrateToNewDataDir(): void {
   const dataDir = getDataDir()
-  if (existsSync(join(dataDir, 'crm.db'))) return // déjà migré
+  if (existsSync(join(dataDir, 'crm.db'))) return // déjà en place
 
+  const localAppData = process.env.LOCALAPPDATA || join(app.getPath('appData'), '..', 'Local')
   const candidates = [
-    join(app.getPath('appData'), 'Trajectoire'),       // v1.2.0–v1.2.1
-    join(app.getPath('appData'), 'AutoLead CRM'),      // v1.1.2
-    join(app.getPath('appData'), 'autolead-crm'),      // ancien AppData
-    join(app.getPath('appData'), 'asb-crm'),           // encore plus ancien
+    getAppDataMirrorDir(),                                            // mirror AppData Roaming (v1.3.2–v1.3.3)
+    join(dirname(app.getPath('exe')), 'data'),                       // v1.3.x : données à côté de l'exe
+    join(localAppData, 'Trajectoire', 'data'),                       // v1.3.3 AppData Local (si migration intermédiaire)
+    join(localAppData, 'Programs', 'trajectoire-crm', 'data'),       // défaut electron-builder v1.3.x
+    join(app.getPath('appData'), 'AutoLead CRM'),                    // v1.1.2
+    join(app.getPath('appData'), 'autolead-crm'),
+    join(app.getPath('appData'), 'asb-crm'),
   ]
   for (const src of candidates) {
     if (existsSync(join(src, 'crm.db'))) {
@@ -104,6 +119,17 @@ function migrateToNewDataDir(): void {
       break
     }
   }
+}
+
+// Synchronise crm.db + documents vers le mirror AppData (silencieux)
+function _syncBackup(dataDir: string): void {
+  try {
+    const mirrorDir = getAppDataMirrorDir()
+    const dbSrc = join(dataDir, 'crm.db')
+    if (existsSync(dbSrc)) copyFileSync(dbSrc, join(mirrorDir, 'crm.db'))
+    const docsSrc = join(dataDir, 'documents')
+    if (existsSync(docsSrc)) cpSync(docsSrc, join(mirrorDir, 'documents'), { recursive: true })
+  } catch {}
 }
 
 function getDbPath(): string {
@@ -118,7 +144,10 @@ function getDocumentsDir(): string {
 
 function saveDb(): void {
   const data = db.export()
-  writeFileSync(getDbPath(), Buffer.from(data))
+  const buf = Buffer.from(data)
+  writeFileSync(getDbPath(), buf)
+  // Mirror vers AppData pour survivre aux réinstallations
+  try { writeFileSync(join(getAppDataMirrorDir(), 'crm.db'), buf) } catch {}
 }
 
 function run(sql: string, params: any[] = []): void {
@@ -545,6 +574,18 @@ function registerIpcHandlers(): void {
       return ok(query(q, p))
     } catch (e) { return err(e) }
   })
+  ipcMain.handle('dossiers:getAdjacent', (_, id: number) => {
+    try {
+      const ids = query<{ id: number }>('SELECT id FROM Dossier ORDER BY dateDemande DESC, id DESC').map(r => r.id)
+      const idx = ids.indexOf(id)
+      return ok({
+        prevId: idx > 0 ? ids[idx - 1] : null,
+        nextId: idx < ids.length - 1 ? ids[idx + 1] : null,
+        position: idx + 1,
+        total: ids.length
+      })
+    } catch (e) { return err(e) }
+  })
   ipcMain.handle('dossiers:getOne', (_, id) => {
     try {
       const d = queryOne('SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.telephone as clientTel,c.email as clientEmail,cp.entreprise as concessionnaire,cp.nom as contactProNom,cp.telephone as contactProTel,u.nom as agentNom,u.prenom as agentPrenom FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId LEFT JOIN ContactPro cp ON cp.id=d.contactProId LEFT JOIN User u ON u.id=d.createdById WHERE d.id=?', [id])
@@ -645,6 +686,12 @@ function registerIpcHandlers(): void {
       const filename = `${Date.now()}_${d.nomFichier}`
       const dest = join(destDir, filename)
       copyFileSync(d.sourcePath, dest)
+      // Mirror du document dans AppData
+      try {
+        const mirrorDocsDir = join(getAppDataMirrorDir(), 'documents')
+        if (!existsSync(mirrorDocsDir)) mkdirSync(mirrorDocsDir, { recursive: true })
+        copyFileSync(dest, join(mirrorDocsDir, filename))
+      } catch {}
       run('INSERT INTO Document (dossierId,clientId,typeDocument,nomFichier,cheminFichier) VALUES (?,?,?,?,?)',
         [d.dossierId||null, d.clientId||null, d.typeDocument, d.nomFichier, dest])
       return ok({ cheminFichier: dest })
@@ -670,15 +717,45 @@ function registerIpcHandlers(): void {
   ipcMain.handle('relances:delete', (_, id) => { try { run('DELETE FROM Relance WHERE id=?', [id]); return ok() } catch (e) { return err(e) } })
 
   // DASHBOARD
-  ipcMain.handle('dashboard:getStats', () => {
+  ipcMain.handle('dashboard:getStats', (_, year?: number) => {
     try {
-      const counts = queryOne<any>('SELECT SUM(CASE WHEN statut="OUVERT" THEN 1 ELSE 0 END) as dossiersOuverts,SUM(CASE WHEN statut="GAGNE" THEN 1 ELSE 0 END) as dossiersGagnes,SUM(CASE WHEN statut="PERDU" THEN 1 ELSE 0 END) as dossiersPerdus,SUM(CASE WHEN statut="EN_ATTENTE" THEN 1 ELSE 0 END) as dossiersEnAttente,COALESCE(SUM(montantCommission),0) as commissionsTotal,COALESCE(SUM(CASE WHEN statutCommission="PAYEE" THEN montantCommission ELSE 0 END),0) as commissionsPayees,COALESCE(SUM(CASE WHEN statutCommission="A_FACTURER" THEN montantCommission ELSE 0 END),0) as commissionsAFacturer,COALESCE(SUM(CASE WHEN statutCommission="FACTUREE" THEN montantCommission ELSE 0 END),0) as commissionsEnAttente FROM Dossier')
+      const yStr = year ? String(year) : null
+      const yCond  = yStr ? `AND strftime('%Y',dateDemande)=?`   : ''
+      const ydCond = yStr ? `AND strftime('%Y',d.dateDemande)=?` : ''
+      const yp = yStr ? [yStr] : []
+
+      const counts = queryOne<any>(
+        `SELECT SUM(CASE WHEN statut='OUVERT' THEN 1 ELSE 0 END) as dossiersOuverts,
+                SUM(CASE WHEN statut='GAGNE'  THEN 1 ELSE 0 END) as dossiersGagnes,
+                SUM(CASE WHEN statut='PERDU'  THEN 1 ELSE 0 END) as dossiersPerdus,
+                SUM(CASE WHEN statut='EN_ATTENTE' THEN 1 ELSE 0 END) as dossiersEnAttente,
+                COALESCE(SUM(montantCommission),0) as commissionsTotal,
+                COALESCE(SUM(CASE WHEN statutCommission='PAYEE'      THEN montantCommission ELSE 0 END),0) as commissionsPayees,
+                COALESCE(SUM(CASE WHEN statutCommission='A_FACTURER' THEN montantCommission ELSE 0 END),0) as commissionsAFacturer,
+                COALESCE(SUM(CASE WHEN statutCommission='FACTUREE'   THEN montantCommission ELSE 0 END),0) as commissionsEnAttente
+         FROM Dossier WHERE 1=1 ${yCond}`, yp)
+
       const retard = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM Dossier WHERE statutLivraison="EN_RETARD" OR (dateLivraisonPrevue < datetime("now") AND (statutLivraison IS NULL OR statutLivraison NOT IN ("LIVREE","EN_AVANCE","A_L_HEURE")) AND dateLivraisonPrevue IS NOT NULL)')
-      const commMois = query('SELECT strftime("%Y-%m",dateDemande) as mois,COALESCE(SUM(montantCommission),0) as montant FROM Dossier WHERE dateDemande >= datetime("now","-6 months") GROUP BY mois ORDER BY mois')
-      const derniersDossiers = query('SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId ORDER BY d.createdAt DESC LIMIT 10')
+
+      const commMois = yStr
+        ? query<any>(`SELECT strftime('%m',dateDemande) as mois, COALESCE(SUM(montantCommission),0) as montant FROM Dossier WHERE strftime('%Y',dateDemande)=? GROUP BY mois ORDER BY mois`, [yStr])
+        : query<any>(`SELECT strftime('%Y-%m',dateDemande) as mois, COALESCE(SUM(montantCommission),0) as montant FROM Dossier WHERE dateDemande >= datetime('now','-6 months') GROUP BY mois ORDER BY mois`)
+
+      const derniersDossiers = query<any>(
+        `SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE 1=1 ${ydCond} ORDER BY d.createdAt DESC LIMIT 10`, yp)
+
+      const topConcessions = query<any>(
+        `SELECT cp.entreprise, COUNT(d.id) as nb, COALESCE(SUM(d.montantCommission),0) as total
+         FROM Dossier d JOIN ContactPro cp ON cp.id=d.contactProId
+         WHERE 1=1 ${ydCond} GROUP BY cp.id ORDER BY nb DESC LIMIT 5`, yp)
+
+      const availableYears = query<{y: string}>(
+        `SELECT DISTINCT strftime('%Y',dateDemande) as y FROM Dossier WHERE dateDemande IS NOT NULL ORDER BY y DESC`
+      ).map(r => parseInt(r.y)).filter(y => !isNaN(y))
+
       const total = (counts?.dossiersGagnes||0)+(counts?.dossiersPerdus||0)
       const tauxConversion = total>0 ? Math.round(((counts?.dossiersGagnes||0)/total)*100) : 0
-      return ok({ ...counts, tauxConversion, livraisonsEnRetard: retard?.count||0, commissionsMois: commMois, dernierssDossiers: derniersDossiers })
+      return ok({ ...counts, tauxConversion, livraisonsEnRetard: retard?.count||0, commissionsMois: commMois, dernierssDossiers: derniersDossiers, topConcessions, availableYears })
     } catch (e) { return err(e) }
   })
 
@@ -875,7 +952,7 @@ function registerIpcHandlers(): void {
       }
       const splitNom = (raw: string) => {
         const i = raw.indexOf(' ')
-        return i > 0 ? { nom: raw.substring(0, i), prenom: raw.substring(i + 1) } : { nom: raw, prenom: '' }
+        return i > 0 ? { nom: raw.substring(i + 1), prenom: raw.substring(0, i) } : { nom: raw, prenom: '' }
       }
 
       const duplicates: any[] = []
@@ -957,11 +1034,10 @@ function registerIpcHandlers(): void {
       }
       const splitNom = (raw: string) => {
         const i = raw.indexOf(' ')
-        return i > 0 ? { nom: raw.substring(0, i), prenom: raw.substring(i + 1) } : { nom: raw, prenom: '' }
+        return i > 0 ? { nom: raw.substring(i + 1), prenom: raw.substring(0, i) } : { nom: raw, prenom: '' }
       }
 
       const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'TRJ'
-      const forceSet = new Set(forceRows)
       // Compteurs par année (initialisés au besoin depuis la DB)
       const yearCounters: Map<number, number> = new Map()
       const getNextNumero = (dosDate: string): string => {
@@ -1006,8 +1082,6 @@ function registerIpcHandlers(): void {
           }
 
           const dosDate = parseDate(col(r, 'dateDemande'))?.split('T')[0] ?? new Date().toISOString().split('T')[0]
-          const isDuplicate = !!queryOne('SELECT id FROM Dossier WHERE clientId=? AND DATE(dateDemande)=?', [clientId, dosDate])
-          if (isDuplicate && !forceSet.has(i)) { skipped++; continue }
 
           const fin = str(col(r, 'typeFinancement')).toUpperCase()
           const typeFinancement = fin.includes('CASH') ? 'CASH' : fin.includes('LLD') ? 'LLD' : 'LOA'
@@ -1074,7 +1148,7 @@ function registerIpcHandlers(): void {
     try {
       const r = await dialog.showSaveDialog(mainWindow, {
         title: 'Sauvegarder la base de données',
-        defaultPath: `trajectoire_sauvegarde_${new Date().toISOString().slice(0, 10)}.db`,
+        defaultPath: `crm_trajectoire_sauvegarde_${new Date().toISOString().slice(0, 10)}.db`,
         filters: [{ name: 'Base de données SQLite', extensions: ['db'] }]
       })
       if (r.canceled || !r.filePath) return ok(null)
@@ -1162,7 +1236,7 @@ app.whenReady().then(async () => {
     await dialog.showMessageBox({
       type: 'error',
       title: 'Erreur au démarrage',
-      message: `Trajectoire n'a pas pu démarrer.\n\n${String(e)}\n\nVeuillez contacter le support.`,
+      message: `CRM Trajectoire n'a pas pu démarrer.\n\n${String(e)}\n\nVeuillez contacter le support.`,
       buttons: ['Quitter']
     })
     app.quit()

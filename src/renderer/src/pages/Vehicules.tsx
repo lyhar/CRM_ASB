@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Plus, ChevronDown, ChevronRight, Edit2, Trash2, X, Car, Bike } from 'lucide-react'
 
 export default function Vehicules() {
@@ -82,24 +82,24 @@ export default function Vehicules() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text-primary">Marques & Modèles</h1>
         <button className="btn btn-primary" onClick={() => { setEditingMarque(null); setMarqueForm({ nom: '', type: typeFilter }); setShowMarqueForm(true) }}>
           <Plus size={16} /> Nouvelle marque
         </button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex rounded border border-border overflow-hidden flex-shrink-0">
           {['VOITURE', 'MOTO'].map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
-              className={`px-4 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${typeFilter === t ? 'bg-accent-blue text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
+              className={`px-4 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${typeFilter === t ? 'bg-accent text-white' : 'text-text-secondary hover:bg-bg-hover'}`}>
               {t === 'VOITURE' ? <Car size={14} /> : <Bike size={14} />}
               {t === 'VOITURE' ? 'Voitures' : 'Motos'}
             </button>
           ))}
         </div>
-        <input type="text" placeholder="Rechercher une marque..." value={search} onChange={e => setSearch(e.target.value)} className="form-input py-1.5 text-sm w-60" />
+        <input type="text" placeholder="Rechercher une marque..." value={search} onChange={e => setSearch(e.target.value)} className="form-input py-1.5 text-sm w-full sm:w-60" />
         <span className="text-text-muted text-sm">{filtered.length} marque{filtered.length > 1 ? 's' : ''}</span>
       </div>
 
@@ -136,14 +136,14 @@ export default function Vehicules() {
                         className="text-text-muted hover:text-text-primary transition-colors">
                         <Edit2 size={10} />
                       </button>
-                      <button onClick={() => deleteModele(m.id, marque.id)} className="text-text-muted hover:text-accent-red transition-colors">
+                      <button onClick={() => deleteModele(m.id, marque.id)} className="text-text-muted hover:text-color-danger transition-colors">
                         <X size={10} />
                       </button>
                     </div>
                   ))}
                   <button
                     onClick={() => { setEditingModele(null); setModeleForm({ nom: '' }); setShowModeleForm(marque.id) }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-text-muted hover:border-accent-blue hover:text-accent-blue text-sm transition-colors">
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-text-muted hover:border-accent hover:text-accent text-sm transition-colors">
                     <Plus size={11} /> Ajouter
                   </button>
                 </div>
@@ -163,7 +163,7 @@ export default function Vehicules() {
       {/* Marque form modal */}
       {showMarqueForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-bg-card border border-border rounded-lg w-80 p-5">
+          <div className="bg-bg-card border border-border rounded-lg w-full max-w-xs p-5">
             <h3 className="font-semibold text-text-primary mb-4">{editingMarque ? 'Modifier la marque' : 'Nouvelle marque'}</h3>
             <div className="space-y-3">
               <div>
@@ -189,7 +189,7 @@ export default function Vehicules() {
       {/* Modele form modal */}
       {showModeleForm !== null && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-bg-card border border-border rounded-lg w-72 p-5">
+          <div className="bg-bg-card border border-border rounded-lg w-full max-w-xs p-5">
             <h3 className="font-semibold text-text-primary mb-4">{editingModele ? 'Modifier le modèle' : 'Nouveau modèle'}</h3>
             <div>
               <label className="form-label">Nom *</label>

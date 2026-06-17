@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -31,14 +31,14 @@ export default function RichTextEditor({ value, onChange, minHeight = 200, showV
       type="button"
       title={title}
       onClick={onClick}
-      className={`p-1.5 rounded transition-colors ${active ? 'bg-accent-blue text-white' : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'}`}
+      className={`p-1.5 rounded transition-colors ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'}`}
     >
       {children}
     </button>
   )
 
   return (
-    <div className="border border-border rounded overflow-hidden focus-within:border-accent-blue transition-colors">
+    <div className="border border-border rounded overflow-hidden focus-within:border-accent transition-colors">
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-bg-secondary flex-wrap">
         <Btn active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Gras (Ctrl+B)">
@@ -66,7 +66,7 @@ export default function RichTextEditor({ value, onChange, minHeight = 200, showV
         </Btn>
         {showVariableHint && (
           <div className="ml-auto">
-            <span className="text-xs text-text-muted">Variables : <code className="text-accent-blue text-xs">{'{{prenom}}'}</code> <code className="text-accent-blue text-xs">{'{{vehicule}}'}</code> etc.</span>
+            <span className="text-xs text-text-muted">Variables : <code className="text-accent text-xs">{'{{prenom}}'}</code> <code className="text-accent text-xs">{'{{vehicule}}'}</code> etc.</span>
           </div>
         )}
       </div>

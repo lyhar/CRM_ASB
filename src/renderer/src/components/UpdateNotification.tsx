@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Download, RefreshCw, CheckCircle, X, Loader2 } from 'lucide-react'
 
 type State =
@@ -32,11 +32,11 @@ export default function UpdateNotification() {
   if (dismissed || state.type === 'idle') return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-lg border border-border bg-bg-secondary shadow-xl">
+    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-xs rounded-lg border border-border bg-bg-secondary shadow-xl">
       {state.type === 'available' && (
         <div className="p-4">
           <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2 text-accent-blue">
+            <div className="flex items-center gap-2 text-accent">
               <Download size={16} />
               <span className="font-semibold text-sm">Mise à jour disponible</span>
             </div>
@@ -66,13 +66,13 @@ export default function UpdateNotification() {
 
       {state.type === 'downloading' && (
         <div className="p-4">
-          <div className="flex items-center gap-2 text-accent-blue mb-2">
+          <div className="flex items-center gap-2 text-accent mb-2">
             <Loader2 size={16} className="animate-spin" />
             <span className="font-semibold text-sm">Téléchargement en cours...</span>
           </div>
           <div className="w-full bg-bg-primary rounded-full h-1.5 mb-1">
             <div
-              className="bg-accent-blue h-1.5 rounded-full transition-all duration-300"
+              className="bg-accent h-1.5 rounded-full transition-all duration-300"
               style={{ width: `${state.percent}%` }}
             />
           </div>
@@ -83,7 +83,7 @@ export default function UpdateNotification() {
       {state.type === 'downloaded' && (
         <div className="p-4">
           <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2 text-accent-green">
+            <div className="flex items-center gap-2 text-color-success">
               <CheckCircle size={16} />
               <span className="font-semibold text-sm">Prête à installer</span>
             </div>
@@ -111,7 +111,7 @@ export default function UpdateNotification() {
       {state.type === 'error' && (
         <div className="p-4">
           <div className="flex items-start justify-between mb-2">
-            <span className="font-semibold text-sm text-accent-red">Erreur de mise à jour</span>
+            <span className="font-semibold text-sm text-color-danger">Erreur de mise à jour</span>
             <button onClick={() => setDismissed(true)} className="text-text-muted hover:text-text-primary">
               <X size={14} />
             </button>

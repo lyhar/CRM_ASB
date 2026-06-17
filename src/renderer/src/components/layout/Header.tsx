@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Sun, Moon, Search, FolderOpen } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -56,7 +56,7 @@ export default function Header() {
       style={{ height: 52 }}
     >
       {/* Global search */}
-      <div className="relative flex-1 max-w-sm min-w-[220px]">
+      <div className="relative flex-1 max-w-md min-w-[220px]">
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
           <input
@@ -67,7 +67,7 @@ export default function Header() {
             onChange={e => handleSearch(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
-            className="w-full bg-bg-card border border-border rounded pl-8 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue"
+            className="w-full bg-bg-card border border-border rounded pl-8 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
           />
         </div>
         {showDropdown && (
@@ -79,7 +79,7 @@ export default function Header() {
                 onMouseDown={() => handleSelect(r)}
               >
                 {r.type === 'DOSSIER'
-                  ? <FolderOpen size={12} className="text-accent-blue flex-shrink-0" />
+                  ? <FolderOpen size={12} className="text-accent flex-shrink-0" />
                   : <User size={12} className="text-text-muted flex-shrink-0" />
                 }
                 <div className="flex-1 min-w-0">
@@ -89,7 +89,7 @@ export default function Header() {
                   )}
                   {r.marqueNom && <span className="text-text-muted ml-2 text-xs">{r.marqueNom}</span>}
                 </div>
-                <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${r.type === 'DOSSIER' ? 'bg-accent-blue/10 text-accent-blue' : 'bg-bg-hover text-text-muted'}`}>
+                <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${r.type === 'DOSSIER' ? 'bg-accent/10 text-accent' : 'bg-bg-hover text-text-muted'}`}>
                   {r.type === 'DOSSIER' ? 'Dossier' : 'Client'}
                 </span>
               </button>
@@ -108,8 +108,8 @@ export default function Header() {
           {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
         </button>
         <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <div className="w-7 h-7 rounded-full bg-accent-blue/20 flex items-center justify-center">
-            <User size={14} className="text-accent-blue" />
+          <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center">
+            <User size={14} className="text-accent" />
           </div>
           <span>{userName}</span>
         </div>

@@ -16,6 +16,7 @@ interface Window {
 
     getDossiers: (filters?: any) => Promise<any>
     getDossier: (id: number) => Promise<any>
+    getAdjacentDossiers: (id: number) => Promise<any>
     createDossier: (data: any) => Promise<any>
     updateDossier: (id: number, data: any) => Promise<any>
     deleteDossier: (id: number) => Promise<any>
@@ -45,7 +46,7 @@ interface Window {
     updateRelance: (id: number, data: any) => Promise<any>
     deleteRelance: (id: number) => Promise<any>
 
-    getDashboardStats: () => Promise<any>
+    getDashboardStats: (year?: number) => Promise<any>
     importExcel: (filePath: string) => Promise<any>
     openFileDialog: (options?: any) => Promise<any>
     openDocumentDialog: () => Promise<any>

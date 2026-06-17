@@ -1,6 +1,6 @@
 {
   "name": "trajectoire-crm",
-  "version": "1.3.0",
+  "version": "1.3.4",
   "description": "CRM pour courtage automobile & moto",
   "main": "out/main/index.js",
   "author": "Trajectoire",
@@ -53,18 +53,20 @@
   },
   "build": {
     "appId": "fr.trajectoire.crm",
-    "productName": "Trajectoire",
+    "productName": "CRM Trajectoire",
     "icon": "build/icons/icon",
     "win": {
       "target": "nsis",
       "icon": "build/icons/icon.ico"
     },
     "nsis": {
+      "perMachine": true,
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh",
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "Trajectoire"
+      "shortcutName": "CRM Trajectoire"
     },
     "publish": {
       "provider": "github",

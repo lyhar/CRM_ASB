@@ -112,6 +112,32 @@
 
 ---
 
+## v1.3.4 — 17 juin 2026
+**Refonte graphique et corrections de mise en page**
+
+### Améliorations
+- Nouvelle direction visuelle anthracite/cuivre avec thème clair/sombre.
+- Layout principal, sidebar, header, cartes, boutons, formulaires et badges harmonisés.
+- Dashboard enrichi avec rendu responsive des KPIs, graphiques et tableaux.
+- Pages clients, dossiers, commissions, concessionnaires, véhicules et formulaires rendues plus robustes sur petites fenêtres.
+- Tableaux protégés contre les débordements avec scroll horizontal quand nécessaire.
+
+### Corrections
+- Réactivation complète des utilitaires Tailwind après la refonte graphique.
+- Correction des lignes de tableau qui étaient transformées en grilles CSS.
+- Correction du tooltip du camembert et des graphiques pour rendre le texte lisible au survol.
+- Amélioration du contraste des textes secondaires et du texte discret.
+- Modales et notifications adaptées aux petites largeurs.
+
+### Technique
+- Synchronisation de `package-lock.json` avec la version `1.3.4`.
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.3.4
+- Fichier : `CRM Trajectoire Setup 1.3.4.exe`
+
+---
+
 ## Template pour prochaines versions
 
 ## vX.X.X — JJ mois AAAA
