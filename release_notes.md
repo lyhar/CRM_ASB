@@ -112,7 +112,7 @@
 
 ---
 
-## v1.3.4 — 17 juin 2026
+## v1.3.5 — 17 juin 2026
 **Refonte graphique et corrections de mise en page**
 
 ### Améliorations
@@ -130,11 +130,11 @@
 - Modales et notifications adaptées aux petites largeurs.
 
 ### Technique
-- Synchronisation de `package-lock.json` avec la version `1.3.4`.
+- Synchronisation de `package-lock.json` avec la version `1.3.5`.
 
 ### GitHub
-- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.3.4
-- Fichier : `CRM Trajectoire Setup 1.3.4.exe`
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.3.5
+- Fichier : `CRM Trajectoire Setup 1.3.5.exe`
 
 ---
 
