@@ -55,6 +55,12 @@ const api = {
   // Dashboard
   getDashboardStats: () => ipcRenderer.invoke('dashboard:getStats'),
 
+  // Recherche globale
+  searchGlobal: (q: string) => ipcRenderer.invoke('search:global', q),
+
+  // Export Excel
+  exportExcel: (filters?: unknown) => ipcRenderer.invoke('export:excel', filters),
+
   // Import Excel
   importExcelPreview: (filePath: string) => ipcRenderer.invoke('import:preview', filePath),
   importExcelAnalyze: (filePath: string, mapping: Record<string, number>) => ipcRenderer.invoke('import:analyze', filePath, mapping),

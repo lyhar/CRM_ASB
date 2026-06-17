@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit2, Trash2, Flame, FileText, Upload, Plus, Check, Mail } from 'lucide-react'
+import { ArrowLeft, Edit2, Trash2, Flame, FileText, Upload, Plus, Check, Mail, Printer } from 'lucide-react'
 import {
   formatDate, formatCurrency, formatNumber,
   STATUT_LABELS, STATUT_COLORS, FINANCEMENT_LABELS,
@@ -104,6 +104,7 @@ export default function DossierDetail() {
               <Mail size={14} /> Envoyer un email
             </button>
           )}
+          <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={14} /> Imprimer</button>
           <button className="btn btn-ghost" onClick={() => setShowEdit(true)}><Edit2 size={14} /> Modifier</button>
           <button className="btn btn-danger" onClick={handleDelete}><Trash2 size={14} /> Supprimer</button>
         </div>

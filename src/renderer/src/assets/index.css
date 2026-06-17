@@ -8,39 +8,58 @@
   padding: 0;
 }
 
+/* ── Thème sombre (défaut) ── */
 :root {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #141414;
+  --bg-card: #1a1a1a;
+  --bg-hover: #222222;
+  --text-primary: #e5e5e5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #525252;
+  --border: #262626;
+  --border-hover: #3f3f3f;
+  --scrollbar-track: #141414;
+  --scrollbar-thumb: #333;
+  --scrollbar-thumb-hover: #444;
+  --calendar-filter: invert(0.8);
+
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  color: #e5e5e5;
-  background-color: #0f0f0f;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── Thème clair ── */
+.light {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ebebeb;
+  --bg-card: #ffffff;
+  --bg-hover: #e0e0e0;
+  --text-primary: #171717;
+  --text-secondary: #525252;
+  --text-muted: #a3a3a3;
+  --border: #d4d4d4;
+  --border-hover: #a3a3a3;
+  --scrollbar-track: #ebebeb;
+  --scrollbar-thumb: #c4c4c4;
+  --scrollbar-thumb-hover: #a3a3a3;
+  --calendar-filter: invert(0);
 }
 
 body {
   overflow: hidden;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #141414;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #444;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
 input[type='date']::-webkit-calendar-picker-indicator {
-  filter: invert(0.8);
+  filter: var(--calendar-filter);
   cursor: pointer;
 }
 
@@ -89,7 +108,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
   padding: 12px;
   min-height: inherit;
   outline: none;
-  color: #e5e5e5;
+  color: var(--text-primary);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -107,4 +126,37 @@ input[type='date']::-webkit-calendar-picker-indicator {
   pointer-events: none;
   float: left;
   height: 0;
+}
+
+/* ── Impression fiche dossier ── */
+@media print {
+  body { overflow: visible !important; background: white !important; color: black !important; font-size: 12px; }
+  .print-hide { display: none !important; }
+  .print-show { display: block !important; }
+  .sidebar-wrapper, nav, header, .update-notification { display: none !important; }
+  #print-area {
+    display: block !important;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    color: black;
+    padding: 24px;
+    z-index: 9999;
+    overflow: visible;
+  }
+  #print-area .print-card {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+  #print-area h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  #print-area h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  #print-area .print-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+  #print-area .print-label { color: #666; }
+  #print-area .print-val { font-weight: 500; }
+  #print-area .print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
 }

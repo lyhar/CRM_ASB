@@ -753,7 +753,81 @@ function registerIpcHandlers(): void {
       const finContratsProches = query(`SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.email as clientEmail,c.telephone as clientTel,date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months') as dateFinContrat,CAST(julianday(date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months'))-julianday('now') AS INTEGER) as joursRestants FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE d.dateLivraisonReelle IS NOT NULL AND d.dureeContrat IS NOT NULL AND d.statut='GAGNE' AND date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months')>=date('now') AND date(d.dateLivraisonReelle,'+'||d.dureeContrat||' months')<=date('now','+365 days') ORDER BY dateFinContrat ASC`)
       const suiviAnnuel = query(`SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.email as clientEmail FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE d.dateLivraisonReelle IS NOT NULL AND d.statut='GAGNE' AND date(d.dateLivraisonReelle,'+1 year') BETWEEN date('now','-7 days') AND date('now','+7 days')`)
       const sansAvisGoogle = query(`SELECT id,nom,prenom,email,telephone FROM Client WHERE avisGoogle=0 AND email IS NOT NULL AND email!='' ORDER BY createdAt DESC LIMIT 10`)
-      return ok({ anniversaires, dossiersChauds, commissionsEnRetard, finContratsProches, suiviAnnuel, sansAvisGoogle })
+      const relancesDepassees = query(`SELECT r.id,r.dossierId,r.dateRelance,r.notes,d.numeroDossier,d.marqueNom,d.modeleNom,c.nom as clientNom,c.prenom as clientPrenom,c.email as clientEmail,c.telephone as clientTel FROM Relance r LEFT JOIN Dossier d ON d.id=r.dossierId LEFT JOIN Client c ON c.id=d.clientId WHERE r.effectuee=0 AND date(r.dateRelance)<date('now') ORDER BY r.dateRelance ASC`)
+      return ok({ anniversaires, dossiersChauds, commissionsEnRetard, finContratsProches, suiviAnnuel, sansAvisGoogle, relancesDepassees })
+    } catch (e) { return err(e) }
+  })
+
+  // RECHERCHE GLOBALE — clients + dossiers
+  ipcMain.handle('search:global', (_, q: string) => {
+    try {
+      if (!q || q.length < 2) return ok([])
+      const s = `%${q}%`
+      const clients = query<any>(
+        `SELECT 'CLIENT' as type, id, nom, prenom, NULL as numeroDossier, NULL as marqueNom, NULL as statut, telephone, email FROM Client WHERE nom LIKE ? OR prenom LIKE ? OR telephone LIKE ? OR email LIKE ? LIMIT 5`,
+        [s, s, s, s]
+      )
+      const dossiers = query<any>(
+        `SELECT 'DOSSIER' as type, d.id, c.nom, c.prenom, d.numeroDossier, d.marqueNom, d.statut, c.telephone, c.email FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId WHERE d.numeroDossier LIKE ? OR d.marqueNom LIKE ? OR d.modeleNom LIKE ? OR c.nom LIKE ? OR c.prenom LIKE ? LIMIT 5`,
+        [s, s, s, s, s]
+      )
+      return ok([...clients, ...dossiers])
+    } catch (e) { return err(e) }
+  })
+
+  // EXPORT EXCEL des dossiers filtrés
+  ipcMain.handle('export:excel', async (_, filters: any) => {
+    try {
+      let q = `SELECT d.*,c.nom as clientNom,c.prenom as clientPrenom,c.telephone as clientTel,c.email as clientEmail,cp.entreprise as concessionnaire FROM Dossier d LEFT JOIN Client c ON c.id=d.clientId LEFT JOIN ContactPro cp ON cp.id=d.contactProId WHERE 1=1`
+      const p: any[] = []
+      if (filters?.statut) { q += ` AND d.statut=?`; p.push(filters.statut) }
+      if (filters?.typeFinancement) { q += ` AND d.typeFinancement=?`; p.push(filters.typeFinancement) }
+      if (filters?.search) { q += ` AND (c.nom LIKE ? OR c.prenom LIKE ? OR d.numeroDossier LIKE ? OR d.marqueNom LIKE ?)`; const s=`%${filters.search}%`; p.push(s,s,s,s) }
+      q += ` ORDER BY d.dateDemande DESC`
+      const dossiers = query(q, p)
+
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Exporter les dossiers',
+        defaultPath: `dossiers_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+      })
+      if (result.canceled || !result.filePath) return ok(null)
+
+      const XLSX = require('xlsx')
+      const COMMISSION_LABELS: Record<string, string> = { A_FACTURER: 'À facturer', FACTUREE: 'Facturée', PAYEE: 'Payée' }
+      const STATUT_LABELS: Record<string, string> = { OUVERT: 'Ouvert', GAGNE: 'Gagné', PERDU: 'Perdu', EN_ATTENTE: 'En attente' }
+      const rows = dossiers.map((d: any) => ({
+        'N° Dossier': d.numeroDossier,
+        'Nom': d.clientNom,
+        'Prénom': d.clientPrenom,
+        'Téléphone': d.clientTel || '',
+        'Email': d.clientEmail || '',
+        'Date demande': d.dateDemande ? d.dateDemande.slice(0, 10) : '',
+        'Financement': d.typeFinancement,
+        'Statut': STATUT_LABELS[d.statut] || d.statut,
+        'Marque': d.marqueNom || '',
+        'Modèle': d.modeleNom || '',
+        'Neuf/VO': d.neufOuOccasion || '',
+        'Prix véhicule': d.valeurVehicule || '',
+        'Loyer mensuel': d.loyerMensuel || '',
+        'Apport': d.apport || '',
+        'Durée (mois)': d.dureeContrat || '',
+        'Kilométrage': d.kilometrageContrat || '',
+        'Reprise': d.repriseOuiNon ? 'Oui' : 'Non',
+        'Véhicule reprise': d.repriseModele || '',
+        'Concession': d.concessionnaire || '',
+        'Commande': d.commandeEffectuee ? 'Oui' : 'Non',
+        'Date livraison': d.dateLivraisonReelle ? d.dateLivraisonReelle.slice(0, 10) : (d.dateLivraisonPrevue ? d.dateLivraisonPrevue.slice(0, 10) : ''),
+        'Commission TTC': d.montantCommission || '',
+        'Statut commission': d.statutCommission ? (COMMISSION_LABELS[d.statutCommission] || d.statutCommission) : '',
+        'Date facturation': d.dateFacturation ? d.dateFacturation.slice(0, 10) : '',
+        'Date paiement': d.datePaiement ? d.datePaiement.slice(0, 10) : '',
+      }))
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Dossiers')
+      XLSX.writeFile(wb, result.filePath)
+      return ok(result.filePath)
     } catch (e) { return err(e) }
   })
 

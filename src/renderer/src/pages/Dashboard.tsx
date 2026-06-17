@@ -4,10 +4,11 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
-import { FolderOpen, Banknote, Clock, TrendingUp, AlertTriangle, Cake, Flame, Calendar, Star, Mail } from 'lucide-react'
+import { FolderOpen, Banknote, Clock, TrendingUp, AlertTriangle, Cake, Flame, Calendar, Star, Mail, Bell } from 'lucide-react'
 import { formatCurrency, formatDate, STATUT_LABELS, STATUT_COLORS, FINANCEMENT_LABELS, FINANCEMENT_COLORS } from '../lib/utils'
 import EmailComposer from '../components/EmailComposer'
 import { templateSuiviAnnuel, templateRelance6Mois, templateRelance3Mois } from '../lib/emailTemplates'
+import { useTheme } from '../contexts/ThemeContext'
 
 const DONUT_COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#eab308']
 
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [imgUrl, setImgUrl] = useState('')
   const [customTpl, setCustomTpl] = useState<Record<string, string>>({})
   const navigate = useNavigate()
+  const { theme } = useTheme()
 
   useEffect(() => {
     window.api.getDashboardStats().then(res => { if (res.success) setStats(res.data) })
@@ -59,8 +61,12 @@ export default function Dashboard() {
   const todayCount = taches
     ? (taches.anniversaires?.length || 0) + (taches.dossiersChauds?.length || 0) +
       (taches.commissionsEnRetard?.length || 0) + (taches.finContratsProches?.length || 0) +
-      (taches.suiviAnnuel?.length || 0)
+      (taches.suiviAnnuel?.length || 0) + (taches.relancesDepassees?.length || 0)
     : 0
+
+  const tooltipStyle = theme === 'dark'
+    ? { background: '#1a1a1a', border: '1px solid #262626', borderRadius: 6, color: '#e5e5e5', fontSize: 12 }
+    : { background: '#ffffff', border: '1px solid #d4d4d4', borderRadius: 6, color: '#171717', fontSize: 12 }
 
   return (
     <div className="space-y-4">
@@ -215,6 +221,40 @@ export default function Dashboard() {
             </div>
           )}
 
+          {taches.relancesDepassees?.length > 0 && (
+            <div className="card">
+              <div className="flex items-center gap-2 mb-3">
+                <Bell size={14} className="text-accent-red" />
+                <h3 className="font-medium text-text-primary text-sm">Relances en retard</h3>
+                <span className="text-xs bg-accent-red/10 text-accent-red px-1.5 py-0.5 rounded">{taches.relancesDepassees.length}</span>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    {['Client', 'Dossier', 'Date prévue', 'Retard', 'Notes', ''].map(h => (
+                      <th key={h} className="text-left text-xs text-text-muted pb-2 pr-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {taches.relancesDepassees.map((r: any) => {
+                    const jours = Math.floor((Date.now() - new Date(r.dateRelance).getTime()) / 86400000)
+                    return (
+                      <tr key={r.id} className="table-row">
+                        <td className="py-2 pr-3 text-sm text-text-primary">{r.clientPrenom} {r.clientNom}</td>
+                        <td className="py-2 pr-3 text-sm font-mono text-accent-blue">{r.numeroDossier}</td>
+                        <td className="py-2 pr-3 text-sm text-accent-red">{formatDate(r.dateRelance)}</td>
+                        <td className="py-2 pr-3 text-sm font-medium text-accent-red">+{jours}j</td>
+                        <td className="py-2 pr-3 text-xs text-text-muted">{r.notes || '—'}</td>
+                        <td className="py-2"><button onClick={() => navigate(`/dossiers/${r.dossierId}`)} className="text-xs text-accent-blue hover:underline">Ouvrir</button></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {taches.suiviAnnuel?.length > 0 && (
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
@@ -316,7 +356,7 @@ export default function Dashboard() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid #262626', borderRadius: 6, color: '#e5e5e5', fontSize: 12 }}
+                  contentStyle={tooltipStyle}
                   formatter={(v: number, n: string) => [v, n]}
                 />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#a3a3a3' }} />
@@ -336,7 +376,7 @@ export default function Dashboard() {
                 <XAxis dataKey="mois" tick={{ fill: '#a3a3a3', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#a3a3a3', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}€`} />
                 <Tooltip
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid #262626', borderRadius: 6, color: '#e5e5e5', fontSize: 12 }}
+                  contentStyle={tooltipStyle}
                   formatter={(v: number) => [formatCurrency(v), 'Commission']}
                 />
                 <Bar dataKey="Commissions" fill="#3b82f6" radius={[3, 3, 0, 0]} />

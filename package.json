@@ -10,7 +10,8 @@
     "build": "electron-vite build",
     "build:win": "electron-vite build && electron-builder --win",
     "publish:win": "electron-vite build && electron-builder --win --publish always",
-    "preview": "electron-vite preview"
+    "preview": "electron-vite preview",
+    "generate-icons": "node scripts/generate-icon.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -43,6 +44,8 @@
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "jimp": "^0.22.12",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
@@ -51,8 +54,10 @@
   "build": {
     "appId": "fr.trajectoire.crm",
     "productName": "Trajectoire",
+    "icon": "build/icons/icon",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icons/icon.ico"
     },
     "nsis": {
       "oneClick": false,

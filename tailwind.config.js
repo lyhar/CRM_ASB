@@ -5,10 +5,10 @@ module.exports = {
     extend: {
       colors: {
         bg: {
-          primary: '#0f0f0f',
-          secondary: '#141414',
-          card: '#1a1a1a',
-          hover: '#222222'
+          primary: 'var(--bg-primary)',
+          secondary: 'var(--bg-secondary)',
+          card: 'var(--bg-card)',
+          hover: 'var(--bg-hover)'
         },
         accent: {
           blue: '#3b82f6',
@@ -19,13 +19,13 @@ module.exports = {
           yellow: '#eab308'
         },
         text: {
-          primary: '#e5e5e5',
-          secondary: '#a3a3a3',
-          muted: '#525252'
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-muted)'
         },
         border: {
-          DEFAULT: '#262626',
-          hover: '#3f3f3f'
+          DEFAULT: 'var(--border)',
+          hover: 'var(--border-hover)'
         }
       },
       fontFamily: {

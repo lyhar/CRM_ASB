@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Flame, FolderOpen, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Flame, FolderOpen, ChevronUp, ChevronDown, Download } from 'lucide-react'
 import { formatDate, formatCurrency, STATUT_LABELS, STATUT_COLORS, FINANCEMENT_LABELS, FINANCEMENT_COLORS, COMMISSION_LABELS, COMMISSION_COLORS } from '../lib/utils'
 import DossierForm from '../components/DossierForm'
 
@@ -50,9 +50,17 @@ export default function Dossiers() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-text-primary">Dossiers</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          <Plus size={16} /> Nouveau dossier
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn btn-ghost border border-border text-sm"
+            onClick={() => window.api.exportExcel({ search: search || undefined, statut: statutFilter || undefined, typeFinancement: financementFilter || undefined })}
+          >
+            <Download size={14} /> Exporter Excel
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={16} /> Nouveau dossier
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
