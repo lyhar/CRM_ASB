@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell, dialog, session } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, cpSync, readdirSync, statSync, unlinkSync } from 'fs'
 import { autoUpdater } from 'electron-updater'
 import type { Database } from 'sql.js'
@@ -50,11 +50,11 @@ function setupAutoUpdater(): void {
   ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(),
-    appPath: app.getAppPath(),
-    userData: app.getPath('userData'),
+    appPath: app.isPackaged ? dirname(app.getPath('exe')) : app.getAppPath(),
+    dataDir: getDataDir(),
     dbPath: getDbPath(),
-    documentsDir: join(app.getPath('userData'), 'documents'),
-    backupsDir: join(app.getPath('userData'), 'backups'),
+    documentsDir: getDocumentsDir(),
+    backupsDir: getBackupDir(),
     electron: process.versions.electron,
     node: process.versions.node,
     platform: process.platform,
@@ -63,22 +63,38 @@ function setupAutoUpdater(): void {
   }))
 }
 
-// Migration : déplacer les données de l'ancien dossier asb-crm vers autolead-crm
-function migrateUserData(): void {
-  const newDataDir = join(app.getPath('appData'), 'autolead-crm')
-  const oldDataDir = join(app.getPath('appData'), 'asb-crm')
-  if (!existsSync(newDataDir) && existsSync(oldDataDir)) {
-    try { cpSync(oldDataDir, newDataDir, { recursive: true }) } catch {}
+// Dossier de données : à côté de l'exe en prod, ou 'dev-data' en dev
+function getDataDir(): string {
+  const dir = app.isPackaged
+    ? join(dirname(app.getPath('exe')), 'data')
+    : join(app.getAppPath(), 'dev-data')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+// Migration : déplace les données des anciens emplacements AppData vers le dossier de l'app
+function migrateToNewDataDir(): void {
+  const dataDir = getDataDir()
+  if (existsSync(join(dataDir, 'crm.db'))) return // déjà migré
+
+  const candidates = [
+    join(app.getPath('appData'), 'autolead-crm'),
+    join(app.getPath('appData'), 'asb-crm'),
+  ]
+  for (const src of candidates) {
+    if (existsSync(join(src, 'crm.db'))) {
+      try { cpSync(src, dataDir, { recursive: true }) } catch (e) { console.error('Migration failed:', e) }
+      break
+    }
   }
-  app.setPath('userData', newDataDir)
 }
 
 function getDbPath(): string {
-  return join(app.getPath('userData'), 'crm.db')
+  return join(getDataDir(), 'crm.db')
 }
 
 function getDocumentsDir(): string {
-  const dir = join(app.getPath('userData'), 'documents')
+  const dir = join(getDataDir(), 'documents')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -349,7 +365,7 @@ function generateNumeroDossier(): string {
 }
 
 function getBackupDir(): string {
-  const dir = join(app.getPath('userData'), 'backups')
+  const dir = join(getDataDir(), 'backups')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -679,14 +695,37 @@ function registerIpcHandlers(): void {
   ipcMain.handle('import:excel', (_, filePath) => {
     try {
       const XLSX = require('xlsx')
-      const wb = XLSX.readFile(filePath)
+      const wb = XLSX.readFile(filePath, { cellDates: true })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
+
+      // Helpers
+      const str = (v: any) => String(v ?? '').trim()
+      const isOui = (v: any) => ['O', 'OUI', '1', 'YES', 'X'].includes(str(v).toUpperCase())
+      const parseNum = (v: any): number | null => {
+        if (v === null || v === undefined || str(v) === '') return null
+        const n = parseFloat(str(v).replace(/[^0-9.,-]/g, '').replace(',', '.'))
+        return isNaN(n) ? null : n
+      }
+      const parseDate = (v: any): string | null => {
+        if (!v) return null
+        try {
+          const d = new Date(v)
+          return isNaN(d.getTime()) ? null : d.toISOString()
+        } catch { return null }
+      }
+
+      // Colonnes (0-indexé) :
+      // 0=DATE DEMANDE  1=NOM  2=PRENOM  3=PRO/PART  4=LOA/CASH  5=NEUF/VO
+      // 6=MARQUE  7=MODELE  8=CARACT.  9=PRIX/LOYER  10=APPORT  11=REPRISE O/N
+      // 12=MODELE REPRISE  13=PRIX  14=KM  15=CHAUD  16=CONCESSION
+      // 17=COMMANDE O/N  18=DATE LIV  19=FACTURE O/N  20=PAYE O/N
+      // 21=DATE RELANCE FACT  22=MONTANT TTC  23=AVIS GOOGLE
 
       const year = new Date().getFullYear()
       const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'AL'
-      const r = queryOne<{ max: string | null }>(`SELECT MAX(numeroDossier) as max FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
-      let counter = r?.max ? parseInt(r.max.split('-').pop() || '0') + 1 : 1
+      const rMax = queryOne<{ max: string | null }>(`SELECT MAX(numeroDossier) as max FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
+      let counter = rMax?.max ? parseInt(rMax.max.split('-').pop() || '0') + 1 : 1
 
       let imported = 0
       let skipped = 0
@@ -694,28 +733,85 @@ function registerIpcHandlers(): void {
       db.run('BEGIN TRANSACTION')
       try {
         for (let i = 1; i < rows.length; i++) {
-          const row = rows[i]
-          if (!row[1]) continue
-          const parts = String(row[1]).trim().split(' ')
-          const nom = parts[0] || 'Inconnu'
-          const prenom = parts.slice(1).join(' ')
+          const r = rows[i]
+          const nom = str(r[1])
+          const prenom = str(r[2])
+          if (!nom) continue
 
-          let existing = queryOne<{ id: number }>('SELECT id FROM Client WHERE nom=? AND prenom=?', [nom, prenom])
+          // Client
+          const type = str(r[3]).toUpperCase() === 'PRO' ? 'PROFESSIONNEL' : 'PARTICULIER'
+          const avisGoogle = isOui(r[23]) ? 1 : 0
           let clientId: number
+          const existing = queryOne<{ id: number }>('SELECT id FROM Client WHERE nom=? AND prenom=?', [nom, prenom])
           if (!existing) {
-            db.run('INSERT INTO Client (nom,prenom,type,updatedAt) VALUES (?,?,?,datetime("now"))', [nom, prenom, row[2]==='PRO'?'PROFESSIONNEL':'PARTICULIER'])
+            db.run(
+              'INSERT INTO Client (nom,prenom,type,estPremierAppelant,avisGoogle,updatedAt) VALUES (?,?,?,0,?,datetime("now"))',
+              [nom, prenom, type, avisGoogle]
+            )
             clientId = queryOne<{ id: number }>('SELECT last_insert_rowid() as id')?.id ?? 0
-          } else { clientId = existing.id }
+          } else {
+            // Mettre à jour avisGoogle si disponible
+            if (avisGoogle) db.run('UPDATE Client SET avisGoogle=1 WHERE id=?', [existing.id])
+            clientId = existing.id
+          }
 
-          // Ignorer les doublons (même client + même date)
-          const dosDate = row[0] ? new Date(row[0]).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+          // Dédoublonnage dossier
+          const dosDate = parseDate(r[0])?.split('T')[0] ?? new Date().toISOString().split('T')[0]
           if (queryOne('SELECT id FROM Dossier WHERE clientId=? AND DATE(dateDemande)=?', [clientId, dosDate])) { skipped++; continue }
+
+          // Financement
+          const fin = str(r[4]).toUpperCase()
+          const typeFinancement = fin === 'CASH' ? 'CASH' : fin === 'LOA' ? 'LOA' : 'LLD'
+
+          // Statut & commission
+          const commande = isOui(r[17])
+          const paye = isOui(r[20])
+          const facture = isOui(r[19])
+          const statut = commande ? 'GAGNE' : 'OUVERT'
+          const statutCommission = paye ? 'PAYEE' : facture ? 'FACTUREE' : null
+
+          // Concession : chercher par nom d'entreprise
+          const concessionNom = str(r[16])
+          const contactPro = concessionNom
+            ? queryOne<{ id: number }>('SELECT id FROM ContactPro WHERE entreprise LIKE ?', [`%${concessionNom}%`])
+            : null
 
           const numero = `${prefix}-${year}-${String(counter).padStart(4, '0')}`
           counter++
+
           db.run(
-            `INSERT INTO Dossier (numeroDossier,clientId,dateDemande,typeFinancement,statut,marqueNom,modeleNom,caracteristiques,valeurVehicule,loyerMensuel,repriseOuiNon,estChaud,commandeEffectuee,montantCommission,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime("now"))`,
-            [numero,clientId,row[0]?new Date(row[0]).toISOString():new Date().toISOString(),row[3]==='CASH'?'CASH':row[3]==='LOA'?'LOA':'LLD',row[16]?'GAGNE':'OUVERT',row[5]||null,row[6]||null,row[7]||null,row[12]?parseFloat(String(row[12]).replace(/[^0-9.]/g,'')):null,row[8]?parseFloat(String(row[8]).replace(/[^0-9.]/g,'')):null,row[10]==='O'||row[10]==='OUI'?1:0,row[14]==='O'||row[14]==='OUI'?1:0,row[16]?1:0,row[21]?parseFloat(String(row[21]).replace(/[^0-9.]/g,'')):null]
+            `INSERT INTO Dossier (
+              numeroDossier,clientId,dateDemande,typeFinancement,statut,
+              neufOuOccasion,marqueNom,modeleNom,caracteristiques,
+              valeurVehicule,loyerMensuel,apport,
+              repriseOuiNon,repriseModele,
+              kilometrageContrat,
+              estChaud,contactProId,commandeEffectuee,
+              dateLivraisonReelle,statutCommission,dateRelance,montantCommission,
+              updatedAt
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime("now"))`,
+            [
+              numero, clientId,
+              parseDate(r[0]) ?? new Date().toISOString(),
+              typeFinancement, statut,
+              str(r[5]) || null,
+              str(r[6]) || null,
+              str(r[7]) || null,
+              str(r[8]) || null,
+              parseNum(r[13]),
+              parseNum(r[9]),
+              parseNum(r[10]),
+              isOui(r[11]) ? 1 : 0,
+              str(r[12]) || null,
+              parseNum(r[14]),
+              isOui(r[15]) ? 1 : 0,
+              contactPro?.id ?? null,
+              commande ? 1 : 0,
+              parseDate(r[18]),
+              statutCommission,
+              parseDate(r[21]),
+              parseNum(r[22]),
+            ]
           )
           imported++
         }
@@ -783,7 +879,7 @@ function registerIpcHandlers(): void {
 // Détecte un changement de version et nettoie les caches si nécessaire
 async function handleVersionChange(): Promise<{ updated: boolean; from: string | null }> {
   const currentVersion = app.getVersion()
-  const versionFile = join(app.getPath('userData'), '.version')
+  const versionFile = join(getDataDir(), '.version')
   const storedVersion = existsSync(versionFile) ? readFileSync(versionFile, 'utf-8').trim() : null
 
   if (storedVersion && storedVersion !== currentVersion) {
@@ -803,7 +899,7 @@ async function handleVersionChange(): Promise<{ updated: boolean; from: string |
 }
 
 app.whenReady().then(async () => {
-  migrateUserData()
+  migrateToNewDataDir()
   const versionInfo = await handleVersionChange()
   await initDatabase()
   registerIpcHandlers()

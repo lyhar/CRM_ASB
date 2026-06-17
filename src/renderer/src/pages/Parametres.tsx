@@ -473,7 +473,7 @@ export default function Parametres() {
               <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Emplacements</p>
               {[
                 ["Dossier d'installation", appInfo.appPath],
-                ['Données utilisateur', appInfo.userData],
+                ['Données (db, docs, backups)', appInfo.dataDir],
                 ['Base de données', appInfo.dbPath],
                 ['Documents importés', appInfo.documentsDir],
                 ['Sauvegardes auto', appInfo.backupsDir],
