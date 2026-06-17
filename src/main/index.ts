@@ -837,10 +837,15 @@ function registerIpcHandlers(): void {
       const XLSX = require('xlsx')
       const wb = XLSX.readFile(filePath, { cellDates: true })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, cellDates: true })
       const headers = (rows[0] || []).map((h: any) => String(h ?? '').trim())
+      const fmtVal = (v: any): string => {
+        if (v === null || v === undefined) return ''
+        if (v instanceof Date) return isNaN(v.getTime()) ? '' : v.toISOString().slice(0, 10)
+        return String(v).trim()
+      }
       const sampleRows = rows.slice(1, 6).map(r =>
-        headers.map((_: any, i: number) => String(r[i] ?? '').trim())
+        headers.map((_: any, i: number) => fmtVal(r[i]))
       )
       return ok({ headers, sampleRows, totalRows: rows.length - 1 })
     } catch (e) { return err(e) }
@@ -852,12 +857,17 @@ function registerIpcHandlers(): void {
       const XLSX = require('xlsx')
       const wb = XLSX.readFile(filePath, { cellDates: true })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, cellDates: true })
 
-      const str = (v: any) => String(v ?? '').trim()
+      const str = (v: any) => {
+        if (v === null || v === undefined) return ''
+        if (v instanceof Date) return ''
+        return String(v).trim()
+      }
       const parseDate = (v: any): string | null => {
         if (!v) return null
-        try { const d = new Date(v); return isNaN(d.getTime()) ? null : d.toISOString() } catch { return null }
+        if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString()
+        try { const d = new Date(String(v)); return isNaN(d.getTime()) ? null : d.toISOString() } catch { return null }
       }
       const col = (row: any[], key: string) => {
         const idx = mapping[key]
@@ -914,18 +924,32 @@ function registerIpcHandlers(): void {
       const XLSX = require('xlsx')
       const wb = XLSX.readFile(filePath, { cellDates: true })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
+      // raw: true → nombres natifs (résout le format Comptabilité), cellDates: true → Date objects
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, cellDates: true })
 
-      const str = (v: any) => String(v ?? '').trim()
-      const isOui = (v: any) => ['O', 'OUI', '1', 'YES', 'X'].includes(str(v).toUpperCase())
+      const str = (v: any) => {
+        if (v === null || v === undefined) return ''
+        if (v instanceof Date) return ''
+        return String(v).trim()
+      }
+      const isOui = (v: any) => ['O', 'OUI', '1', 'YES', 'X', 'TRUE'].includes(str(v).toUpperCase()) || v === true || v === 1
       const parseNum = (v: any): number | null => {
-        if (v === null || v === undefined || str(v) === '') return null
-        const n = parseFloat(str(v).replace(/[^0-9.,-]/g, '').replace(',', '.'))
+        if (v === null || v === undefined) return null
+        // Cas idéal : xlsx retourne déjà un number (format Comptabilité, Standard, etc.)
+        if (typeof v === 'number') return isNaN(v) ? null : v
+        const s = str(v)
+        if (!s || s === '-') return null
+        // Nettoyage chaîne : espaces, symboles monétaires, séparateurs de milliers
+        const cleaned = s.replace(/\s/g, '').replace(/[^0-9,.-]/g, '')
+        // Détecter séparateur décimal : si dernière virgule ou point suivi de 1-2 chiffres
+        const normalized = cleaned.replace(/[.,](?=\d{3}(?:[.,]|$))/g, '').replace(',', '.')
+        const n = parseFloat(normalized)
         return isNaN(n) ? null : n
       }
       const parseDate = (v: any): string | null => {
         if (!v) return null
-        try { const d = new Date(v); return isNaN(d.getTime()) ? null : d.toISOString() } catch { return null }
+        if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString()
+        try { const d = new Date(String(v)); return isNaN(d.getTime()) ? null : d.toISOString() } catch { return null }
       }
       const col = (row: any[], key: string) => {
         const idx = mapping[key]
