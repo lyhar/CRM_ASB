@@ -60,7 +60,8 @@
       "provider": "github",
       "owner": "lyhar",
       "repo": "CRM_ASB",
-      "private": false
+      "private": false,
+      "releaseType": "release"
     },
     "extraResources": [
       {
