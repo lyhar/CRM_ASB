@@ -6,6 +6,7 @@ type State =
   | { type: 'available'; version: string }
   | { type: 'downloading'; percent: number }
   | { type: 'downloaded' }
+  | { type: 'installing'; backupDone: boolean }
   | { type: 'error'; message: string }
 
 export default function UpdateNotification() {
@@ -22,6 +23,12 @@ export default function UpdateNotification() {
     })
     window.api.onUpdateDownloaded(() => {
       setState({ type: 'downloaded' })
+    })
+    window.api.onUpdateBackupStarted(() => {
+      setState({ type: 'installing', backupDone: false })
+    })
+    window.api.onUpdateBackupCreated(() => {
+      setState({ type: 'installing', backupDone: true })
     })
     window.api.onUpdateError((msg) => {
       setState({ type: 'error', message: msg })
@@ -93,7 +100,12 @@ export default function UpdateNotification() {
           </p>
           <div className="flex gap-2">
             <button
-              onClick={() => window.api.installUpdate()}
+              onClick={async () => {
+                setState({ type: 'installing', backupDone: false })
+                try {
+                  await window.api.installUpdate()
+                } catch {}
+              }}
               className="btn btn-primary flex-1 text-xs py-1.5"
             >
               <RefreshCw size={12} /> Redémarrer et installer
@@ -105,6 +117,22 @@ export default function UpdateNotification() {
               Plus tard
             </button>
           </div>
+        </div>
+      )}
+
+      {state.type === 'installing' && (
+        <div className="p-4">
+          <div className="flex items-center gap-2 text-accent mb-2">
+            <Loader2 size={16} className="animate-spin" />
+            <span className="font-semibold text-sm">
+              {state.backupDone ? 'Installation...' : 'Sauvegarde des données...'}
+            </span>
+          </div>
+          <p className="text-text-secondary text-xs">
+            {state.backupDone
+              ? "Sauvegarde créée. L'application va redémarrer."
+              : "Création d'une sauvegarde complète avant la mise à jour."}
+          </p>
         </div>
       )}
 

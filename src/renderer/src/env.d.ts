@@ -50,5 +50,13 @@ interface Window {
     importExcel: (filePath: string) => Promise<any>
     openFileDialog: (options?: any) => Promise<any>
     openDocumentDialog: () => Promise<any>
+    installUpdate: () => Promise<any>
+    onUpdateAvailable: (cb: (info: { version: string }) => void) => void
+    onUpdateProgress: (cb: (p: { percent: number }) => void) => void
+    onUpdateDownloaded: (cb: () => void) => void
+    onUpdateBackupStarted: (cb: () => void) => void
+    onUpdateBackupCreated: (cb: (info: { path: string }) => void) => void
+    onUpdateError: (cb: (msg: string) => void) => void
+    removeUpdateListeners: () => void
   }
 }

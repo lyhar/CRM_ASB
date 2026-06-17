@@ -109,6 +109,10 @@ const api = {
     ipcRenderer.on('update:progress', (_, p) => cb(p)),
   onUpdateDownloaded: (cb: () => void) =>
     ipcRenderer.on('update:downloaded', () => cb()),
+  onUpdateBackupStarted: (cb: () => void) =>
+    ipcRenderer.on('update:backup-started', () => cb()),
+  onUpdateBackupCreated: (cb: (info: { path: string }) => void) =>
+    ipcRenderer.on('update:backup-created', (_, info) => cb(info)),
   onUpdateError: (cb: (msg: string) => void) =>
     ipcRenderer.on('update:error', (_, msg) => cb(msg)),
   onAppUpdated: (cb: (info: { from: string; to: string }) => void) =>
@@ -118,6 +122,8 @@ const api = {
     ipcRenderer.removeAllListeners('update:not-available')
     ipcRenderer.removeAllListeners('update:progress')
     ipcRenderer.removeAllListeners('update:downloaded')
+    ipcRenderer.removeAllListeners('update:backup-started')
+    ipcRenderer.removeAllListeners('update:backup-created')
     ipcRenderer.removeAllListeners('update:error')
   }
 }

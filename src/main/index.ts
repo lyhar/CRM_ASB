@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, dialog, session } from 'electron'
 import { join, dirname } from 'path'
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, cpSync, readdirSync, statSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, cpSync, readdirSync, statSync, unlinkSync, rmSync } from 'fs'
 import { autoUpdater } from 'electron-updater'
 import type { Database } from 'sql.js'
 
@@ -10,7 +10,7 @@ let cachedDataDir: string | null = null
 
 function setupAutoUpdater(): void {
   autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoInstallOnAppQuit = false
 
   autoUpdater.on('update-available', (info) => {
     mainWindow?.webContents.send('update:available', {
@@ -45,8 +45,17 @@ function setupAutoUpdater(): void {
   ipcMain.handle('update:download', async () => {
     try { await autoUpdater.downloadUpdate() } catch {}
   })
-  ipcMain.handle('update:install', () => {
-    autoUpdater.quitAndInstall()
+  ipcMain.handle('update:install', async () => {
+    try {
+      mainWindow?.webContents.send('update:backup-started')
+      const backupPath = createUpdateBackup()
+      mainWindow?.webContents.send('update:backup-created', { path: backupPath })
+      autoUpdater.quitAndInstall()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      mainWindow?.webContents.send('update:error', `Sauvegarde impossible avant mise à jour : ${message}`)
+      throw e
+    }
   })
   ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('app:info', () => ({
@@ -531,6 +540,58 @@ function backupDatabase(): void {
       files.slice(0, files.length - 10).forEach(f => { try { unlinkSync(join(backupDir, f)) } catch {} })
     }
   } catch (e) { console.error('Auto-backup failed:', e) }
+}
+
+function createUpdateBackup(): string {
+  const dataDir = getDataDir()
+  const backupDir = getBackupDir()
+  const ts = new Date().toISOString().replace(/T/, '_').replace(/:/g, 'h').replace(/\..+/, '').replace(/(\d{2})h(\d{2})h/, '$1h$2m')
+  const updateBackupDir = join(backupDir, `update_${app.getVersion()}_${ts}`)
+
+  if (!existsSync(updateBackupDir)) mkdirSync(updateBackupDir, { recursive: true })
+
+  if (db) {
+    writeFileSync(getDbPath(), Buffer.from(db.export()))
+  }
+
+  const dbPath = getDbPath()
+  if (!existsSync(dbPath)) {
+    throw new Error(`base introuvable : ${dbPath}`)
+  }
+
+  copyFileSync(dbPath, join(updateBackupDir, 'crm.db'))
+
+  const documentsDir = getDocumentsDir()
+  if (existsSync(documentsDir)) {
+    cpSync(documentsDir, join(updateBackupDir, 'documents'), { recursive: true })
+  }
+
+  writeFileSync(
+    join(updateBackupDir, 'manifest.json'),
+    JSON.stringify({
+      createdAt: new Date().toISOString(),
+      appVersion: app.getVersion(),
+      dataDir,
+      dbPath,
+      documentsDir,
+    }, null, 2),
+    'utf-8'
+  )
+
+  _syncBackup(dataDir)
+
+  const updateBackups = readdirSync(backupDir)
+    .map(name => ({ name, path: join(backupDir, name) }))
+    .filter(entry => entry.name.startsWith('update_') && statSync(entry.path).isDirectory())
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  if (updateBackups.length > 5) {
+    updateBackups.slice(0, updateBackups.length - 5).forEach(entry => {
+      try { rmSync(entry.path, { recursive: true, force: true }) } catch {}
+    })
+  }
+
+  return updateBackupDir
 }
 
 function createWindow(): void {

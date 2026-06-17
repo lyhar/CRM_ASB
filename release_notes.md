@@ -112,6 +112,22 @@
 
 ---
 
+## v1.3.8 — 17 juin 2026
+**Sauvegarde automatique avant installation des mises à jour**
+
+### Améliorations
+- Création automatique d'une sauvegarde complète avant le redémarrage d'installation d'une mise à jour téléchargée.
+- La sauvegarde contient `crm.db`, le dossier `documents` et un `manifest.json` avec les chemins d'origine.
+- L'installation est bloquée si la sauvegarde de sécurité échoue.
+- La notification de mise à jour affiche l'étape de sauvegarde avant le redémarrage.
+- Conservation automatique des 5 derniers backups de mise à jour.
+
+### GitHub
+- Release : https://github.com/lyhar/CRM_ASB/releases/tag/v1.3.8
+- Fichier : `CRM Trajectoire Setup 1.3.8.exe`
+
+---
+
 ## v1.3.7 — 17 juin 2026
 **Icône d'application cuivre**
 
