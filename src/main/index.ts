@@ -772,8 +772,70 @@ function registerIpcHandlers(): void {
     } catch (e) { return err(e) }
   })
 
-  // IMPORT EXCEL avec mapping manuel
-  ipcMain.handle('import:excel', (_, filePath: string, mapping: Record<string, number>) => {
+  // ANALYSE EXCEL — dry run, retourne les doublons sans importer
+  ipcMain.handle('import:analyze', (_, filePath: string, mapping: Record<string, number>) => {
+    try {
+      const XLSX = require('xlsx')
+      const wb = XLSX.readFile(filePath, { cellDates: true })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
+
+      const str = (v: any) => String(v ?? '').trim()
+      const parseDate = (v: any): string | null => {
+        if (!v) return null
+        try { const d = new Date(v); return isNaN(d.getTime()) ? null : d.toISOString() } catch { return null }
+      }
+      const col = (row: any[], key: string) => {
+        const idx = mapping[key]
+        return (idx !== undefined && idx !== null && idx >= 0) ? row[idx] : undefined
+      }
+      const splitNom = (raw: string) => {
+        const i = raw.indexOf(' ')
+        return i > 0 ? { nom: raw.substring(0, i), prenom: raw.substring(i + 1) } : { nom: raw, prenom: '' }
+      }
+
+      const duplicates: any[] = []
+      let toImport = 0
+
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i]
+        const rawNom = str(col(r, 'nom'))
+        if (!rawNom) continue
+
+        let nom: string, prenom: string
+        if (mapping.prenom === -2) {
+          const s = splitNom(rawNom); nom = s.nom; prenom = s.prenom
+        } else {
+          nom = rawNom; prenom = str(col(r, 'prenom'))
+        }
+
+        const existingClient = queryOne<{ id: number }>('SELECT id FROM Client WHERE nom=? AND prenom=?', [nom, prenom])
+        const dosDate = parseDate(col(r, 'dateDemande'))?.split('T')[0] ?? new Date().toISOString().split('T')[0]
+        const existingDossier = existingClient
+          ? queryOne<{ numeroDossier: string }>('SELECT numeroDossier FROM Dossier WHERE clientId=? AND DATE(dateDemande)=?', [existingClient.id, dosDate])
+          : null
+
+        if (existingDossier) {
+          duplicates.push({
+            rowIndex: i,
+            nom, prenom,
+            dateDemande: dosDate,
+            marqueNom: str(col(r, 'marqueNom')) || null,
+            modeleNom: str(col(r, 'modeleNom')) || null,
+            typeFinancement: str(col(r, 'typeFinancement')) || null,
+            existingDossierNumero: existingDossier.numeroDossier,
+          })
+        } else {
+          toImport++
+        }
+      }
+
+      return ok({ duplicates, toImport })
+    } catch (e) { return err(e) }
+  })
+
+  // IMPORT EXCEL avec mapping manuel, split optionnel et gestion des doublons forcés
+  ipcMain.handle('import:excel', (_, filePath: string, mapping: Record<string, number>, forceRows: number[] = []) => {
     try {
       const XLSX = require('xlsx')
       const wb = XLSX.readFile(filePath, { cellDates: true })
@@ -795,11 +857,25 @@ function registerIpcHandlers(): void {
         const idx = mapping[key]
         return (idx !== undefined && idx !== null && idx >= 0) ? row[idx] : undefined
       }
+      const splitNom = (raw: string) => {
+        const i = raw.indexOf(' ')
+        return i > 0 ? { nom: raw.substring(0, i), prenom: raw.substring(i + 1) } : { nom: raw, prenom: '' }
+      }
 
-      const year = new Date().getFullYear()
       const prefix = queryOne<{ value: string }>(`SELECT value FROM Settings WHERE key='dossier_prefix'`)?.value || 'TRJ'
-      const rMax = queryOne<{ max: string | null }>(`SELECT MAX(numeroDossier) as max FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
-      let counter = rMax?.max ? parseInt(rMax.max.split('-').pop() || '0') + 1 : 1
+      const forceSet = new Set(forceRows)
+      // Compteurs par année (initialisés au besoin depuis la DB)
+      const yearCounters: Map<number, number> = new Map()
+      const getNextNumero = (dosDate: string): string => {
+        const year = new Date(dosDate).getFullYear() || new Date().getFullYear()
+        if (!yearCounters.has(year)) {
+          const rMax = queryOne<{ max: string | null }>(`SELECT MAX(numeroDossier) as max FROM Dossier WHERE numeroDossier LIKE ?`, [`${prefix}-${year}-%`])
+          yearCounters.set(year, rMax?.max ? (parseInt(rMax.max.split('-').pop() || '0') + 1) : 1)
+        }
+        const n = yearCounters.get(year)!
+        yearCounters.set(year, n + 1)
+        return `${prefix}-${year}-${String(n).padStart(4, '0')}`
+      }
 
       let imported = 0, skipped = 0
 
@@ -807,9 +883,15 @@ function registerIpcHandlers(): void {
       try {
         for (let i = 1; i < rows.length; i++) {
           const r = rows[i]
-          const nom = str(col(r, 'nom'))
-          const prenom = str(col(r, 'prenom'))
-          if (!nom) continue
+          const rawNom = str(col(r, 'nom'))
+          if (!rawNom) continue
+
+          let nom: string, prenom: string
+          if (mapping.prenom === -2) {
+            const s = splitNom(rawNom); nom = s.nom; prenom = s.prenom
+          } else {
+            nom = rawNom; prenom = str(col(r, 'prenom'))
+          }
 
           const type = str(col(r, 'typeClient')).toUpperCase().includes('PRO') ? 'PROFESSIONNEL' : 'PARTICULIER'
           const avisGoogle = isOui(col(r, 'avisGoogle')) ? 1 : 0
@@ -826,7 +908,8 @@ function registerIpcHandlers(): void {
           }
 
           const dosDate = parseDate(col(r, 'dateDemande'))?.split('T')[0] ?? new Date().toISOString().split('T')[0]
-          if (queryOne('SELECT id FROM Dossier WHERE clientId=? AND DATE(dateDemande)=?', [clientId, dosDate])) { skipped++; continue }
+          const isDuplicate = !!queryOne('SELECT id FROM Dossier WHERE clientId=? AND DATE(dateDemande)=?', [clientId, dosDate])
+          if (isDuplicate && !forceSet.has(i)) { skipped++; continue }
 
           const fin = str(col(r, 'typeFinancement')).toUpperCase()
           const typeFinancement = fin.includes('CASH') ? 'CASH' : fin.includes('LLD') ? 'LLD' : 'LOA'
@@ -842,8 +925,7 @@ function registerIpcHandlers(): void {
             ? queryOne<{ id: number }>('SELECT id FROM ContactPro WHERE entreprise LIKE ?', [`%${concessionNom}%`])
             : null
 
-          const numero = `${prefix}-${year}-${String(counter).padStart(4, '0')}`
-          counter++
+          const numero = getNextNumero(dosDate)
 
           db.run(
             `INSERT INTO Dossier (numeroDossier,clientId,dateDemande,typeFinancement,statut,neufOuOccasion,marqueNom,modeleNom,caracteristiques,valeurVehicule,loyerMensuel,apport,repriseOuiNon,repriseModele,kilometrageContrat,estChaud,contactProId,commandeEffectuee,dateLivraisonReelle,statutCommission,dateRelance,montantCommission,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime("now"))`,

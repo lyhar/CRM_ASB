@@ -1,6 +1,6 @@
 {
   "name": "trajectoire-crm",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "CRM pour courtage automobile & moto",
   "main": "out/main/index.js",
   "author": "Trajectoire",

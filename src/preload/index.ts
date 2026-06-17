@@ -57,7 +57,8 @@ const api = {
 
   // Import Excel
   importExcelPreview: (filePath: string) => ipcRenderer.invoke('import:preview', filePath),
-  importExcel: (filePath: string, mapping: Record<string, number>) => ipcRenderer.invoke('import:excel', filePath, mapping),
+  importExcelAnalyze: (filePath: string, mapping: Record<string, number>) => ipcRenderer.invoke('import:analyze', filePath, mapping),
+  importExcel: (filePath: string, mapping: Record<string, number>, forceRows?: number[]) => ipcRenderer.invoke('import:excel', filePath, mapping, forceRows ?? []),
   purgeData: () => ipcRenderer.invoke('data:purge'),
 
   // File dialog
