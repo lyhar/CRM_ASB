@@ -1,6 +1,6 @@
 {
   "name": "trajectoire-crm",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "CRM pour courtage automobile & moto",
   "main": "out/main/index.js",
   "author": "Trajectoire",
@@ -56,7 +56,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Trajectoire"
