@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  nom       String
+  prenom    String
+  email     String    @unique
+  role      String    @default("AGENT")
+  actif     Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  dossiers  Dossier[] @relation("DossierCreatedBy")
+  clients   Client[]  @relation("ClientCreatedBy")
+}
+
+model Client {
+  id                   Int        @id @default(autoincrement())
+  type                 String     @default("PARTICULIER")
+  nom                  String
+  prenom               String
+  dateNaissance        DateTime?
+  adresse              String?
+  codePostal           String?
+  ville                String?
+  telephone            String?
+  email                String?
+  estPremierAppelant   Boolean    @default(true)
+  referentId           Int?
+  referent             Client?    @relation("Parrainage", fields: [referentId], references: [id])
+  filleuls             Client[]   @relation("Parrainage")
+  nombreContactsAmenes Int        @default(0)
+  avisGoogle           Boolean    @default(false)
+  notes                String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  createdById          Int?
+  createdBy            User?      @relation("ClientCreatedBy", fields: [createdById], references: [id])
+  dossiers             Dossier[]
+  documents            Document[]
+}
+
+model ContactPro {
+  id         Int       @id @default(autoincrement())
+  nom        String
+  prenom     String?
+  entreprise String
+  adresse    String?
+  codePostal String?
+  ville      String?
+  telephone  String?
+  email      String?
+  siret      String?
+  notes      String?
+  actif      Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  dossiers   Dossier[]
+}
+
+model Marque {
+  id      Int      @id @default(autoincrement())
+  nom     String   @unique
+  type    String
+  actif   Boolean  @default(true)
+  modeles Modele[]
+}
+
+model Modele {
+  id       Int     @id @default(autoincrement())
+  nom      String
+  marqueId Int
+  marque   Marque  @relation(fields: [marqueId], references: [id])
+  actif    Boolean @default(true)
+
+  @@unique([marqueId, nom])
+}
+
+model Dossier {
+  id                  Int         @id @default(autoincrement())
+  numeroDossier       String      @unique
+  clientId            Int
+  client              Client      @relation(fields: [clientId], references: [id])
+  dateDemande         DateTime    @default(now())
+  typeFinancement     String
+  statut              String      @default("OUVERT")
+  typeVehicule        String?
+  marqueNom           String?
+  modeleNom           String?
+  energie             String?
+  neufOuOccasion      String?
+  caracteristiques    String?
+  valeurVehicule      Float?
+  loyerMensuel        Float?
+  premierLoyerMajore  Float?
+  dureeContrat        Int?
+  kilometrageContrat  Int?
+  apport              Float?
+  repriseOuiNon       Boolean     @default(false)
+  repriseMarque       String?
+  repriseModele       String?
+  repriseValeur       Float?
+  repriseEtat         String?
+  contactProId        Int?
+  contactPro          ContactPro? @relation(fields: [contactProId], references: [id])
+  nomVendeur          String?
+  lieuPriseCommande   String?
+  dateCommande        DateTime?
+  commandeEffectuee   Boolean     @default(false)
+  dateLivraisonPrevue DateTime?
+  dateLivraisonReelle DateTime?
+  statutLivraison     String?
+  montantCommission   Float?
+  statutCommission    String?
+  dateFacturation     DateTime?
+  datePaiement        DateTime?
+  dateRelance         DateTime?
+  estChaud            Boolean     @default(false)
+  notes               String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  createdById         Int?
+  createdBy           User?       @relation("DossierCreatedBy", fields: [createdById], references: [id])
+  documents           Document[]
+  relances            Relance[]
+}
+
+model Document {
+  id            Int      @id @default(autoincrement())
+  dossierId     Int?
+  dossier       Dossier? @relation(fields: [dossierId], references: [id])
+  clientId      Int?
+  client        Client?  @relation(fields: [clientId], references: [id])
+  typeDocument  String
+  nomFichier    String
+  cheminFichier String
+  createdAt     DateTime @default(now())
+}
+
+model Relance {
+  id          Int      @id @default(autoincrement())
+  dossierId   Int
+  dossier     Dossier  @relation(fields: [dossierId], references: [id])
+  dateRelance DateTime
+  notes       String?
+  effectuee   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}

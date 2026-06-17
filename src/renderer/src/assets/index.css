@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e5e5e5;
+  background-color: #0f0f0f;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #141414;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+}
+
+.btn {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors cursor-pointer;
+}
+
+.btn-primary {
+  @apply bg-accent-blue hover:bg-accent-blue-hover text-white;
+}
+
+.btn-ghost {
+  @apply text-text-secondary hover:text-text-primary hover:bg-bg-hover;
+}
+
+.btn-danger {
+  @apply text-accent-red hover:bg-accent-red/10;
+}
+
+.form-input {
+  @apply w-full bg-bg-secondary border border-border rounded px-3 py-2 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue transition-colors;
+}
+
+.form-label {
+  @apply block text-xs font-medium text-text-secondary mb-1;
+}
+
+.card {
+  @apply bg-bg-card border border-border rounded-lg p-4;
+}
+
+.table-row {
+  @apply border-b border-border hover:bg-bg-hover transition-colors cursor-pointer;
+}
+
+.stat-card {
+  @apply bg-bg-card border border-border rounded-lg p-5;
+}

@@ -1,0 +1,79 @@
+{
+  "name": "asb-crm",
+  "version": "1.0.0",
+  "description": "CRM ASB - Apporteur d'affaires automobile & moto",
+  "main": "out/main/index.js",
+  "author": "ASB",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:win": "electron-vite build && electron-builder --win",
+    "publish:win": "electron-vite build && electron-builder --win --publish always",
+    "preview": "electron-vite preview"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^0.454.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "react-router-dom": "^6.27.0",
+    "recharts": "^2.13.3",
+    "sql.js": "^1.12.0",
+    "tailwind-merge": "^2.5.4",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/sql.js": "^1.4.9",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "fr.asb.crm",
+    "productName": "ASB CRM",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ASB CRM"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "lyhar",
+      "repo": "CRM_ASB",
+      "private": false
+    },
+    "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "."
+      }
+    ],
+    "files": [
+      "out/**/*",
+      "!out/**/*.map"
+    ]
+  }
+}
